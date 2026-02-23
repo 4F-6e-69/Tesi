@@ -1,17 +1,17 @@
+import warnings
 import numpy as np
+from typing import Tuple
+from src.obj.plane.working_plane import WorkingSpace
 
-class Robot(object):
+class Robot:
     def __init__(self):
-        # Raggio di azione del robot
         self._max_radius: float | None = None
         self._min_radius: float | None = None
 
-        # Caratteristi dell'utensile usato
         self._abs_tool_alpha: float | None = None
         self._abs_tool_radius: float | None = None
 
-        # Tolleranza per i calcoli
-        self._tolerance = np.finfo(np.float64).eps
+        self._tolerance = WorkingSpace.EPS_12
 
     @classmethod
     def new_robot(cls, max_radius=None, min_radius=None, abs_tool_alpha=None, abs_tool_radius=None):
@@ -28,95 +28,146 @@ class Robot(object):
     @property
     def max_radius(self) -> float:
         if self._max_radius is None:
-            raise AttributeError('max_radius is not set')
+            raise AttributeError("Raggio massimo (max_radius) non configurato.")
         return self._max_radius
-    @property
-    def min_radius(self) -> float:
-        if self._min_radius is None:
-            raise AttributeError('min_radius is not set')
-        return self._min_radius
 
     @max_radius.setter
     def max_radius(self, value: float):
-        if self._min_radius is not None and value < self.min_radius:
-            raise ValueError('max_radius must be greater than min_radius')
+        if value < 0:
+            warnings.warn(f"Raggio negativo rilevato ({value}). Verrà utilizzato il valore assoluto: {abs(value)}")
 
-        self._max_radius = np.abs(value, dtype=np.float64)
+        val_float = float(abs(value))
+
+        if self._min_radius is not None and val_float <= self._min_radius:
+            raise ValueError(
+                f"Errore: Il raggio massimo ({val_float}) deve essere maggiore "
+                f"del raggio minimo attuale ({self._min_radius})."
+            )
+
+        self._max_radius = val_float
+
+    @property
+    def min_radius(self) -> float:
+        if self._min_radius is None:
+            raise AttributeError("Raggio minimo (min_radius) non configurato.")
+        return self._min_radius
+
     @min_radius.setter
     def min_radius(self, value: float):
-        if self._max_radius is not None and value > self.max_radius:
-            raise ValueError('min_radius must be less than max_radius')
+        if value < 0:
+            warnings.warn(f"Raggio negativo rilevato ({value}). Verrà utilizzato il valore assoluto: {abs(value)}")
 
-        self._min_radius = np.abs(value, dtype=np.float64)
+        val_float = float(abs(value))
+
+        if self._max_radius is not None and val_float >= self._max_radius:
+            raise ValueError(
+                f"Errore: Il raggio minimo ({val_float}) deve essere minore "
+                f"del raggio massimo attuale ({self._max_radius})."
+            )
+
+        self._min_radius = val_float
 
     @property
     def abs_tool_alpha(self) -> float:
         if self._abs_tool_alpha is None:
-            raise AttributeError('abs_tool_alpha is not set')
-
+            raise AttributeError("L'angolo dell'utensile (abs_tool_alpha) non è ancora stato impostato.")
         return self._abs_tool_alpha
+
     @abs_tool_alpha.setter
-    def abs_tool_alpha(self, value: float):
-        self._abs_tool_alpha = np.abs(value, dtype=np.float64)
+    def abs_tool_alpha(self, alpha: float):
+        if alpha is None:
+            raise ValueError("L'angolo dell'utensile (alpha) non può essere None.")
+
+        if alpha < 0:
+            warnings.warn(f"Angolo utensile negativo rilevato ({alpha}). Verrà convertito in positivo: {abs(alpha)}")
+
+        self._abs_tool_alpha = float(abs(alpha))
 
     @property
     def abs_tool_radius(self) -> float:
         if self._abs_tool_radius is None:
-            raise AttributeError('abs_tool_radius is not set')
-
+            raise AttributeError("Il raggio dell'utensile (abs_tool_radius) non è ancora stato impostato.")
         return self._abs_tool_radius
+
     @abs_tool_radius.setter
     def abs_tool_radius(self, value: float):
-        self._abs_tool_radius = np.abs(value, dtype=np.float64)
+        if value is None:
+            raise ValueError("Il raggio dell'utensile non può essere None.")
+
+        if value < 0:
+            warnings.warn(f"Raggio utensile negativo rilevato ({value}). Verrà convertito in positivo: {abs(value)}")
+
+        self._abs_tool_radius = float(abs(value))
 
     @property
-    def tolerance(self):
+    def tolerance(self) -> float:
         return self._tolerance
+
     @tolerance.setter
     def tolerance(self, value: float):
-        self._tolerance = np.abs(value, dtype=np.float64)
+        if value is None:
+            raise ValueError("La tolleranza non può essere None.")
 
-    def validate_point(self, point) -> bool: # TODO definire un tipe hint per le coordinate a 3 dimensioni
-        p = np.asarray(point)
+        if value <= 0:
+            warnings.warn(f"Impostata tolleranza non strettamente positiva ({value}). Verrà usato il valore assoluto.")
+
+        float_value = float(abs(value))
+        if float_value > WorkingSpace.EPS_05:
+            raise ValueError(f"Tolleranza troppo alta (tolleranza massima = {WorkingSpace.EPS_05}).")
+
+        self._tolerance = float_value
+
+    def validate_point(self, point: np.typing.ArrayLike[np.float64]) -> bool:
+        p = np.asarray(point, dtype=np.float64)
         p_norm = np.linalg.norm(p)
 
-        if self._min_radius < p_norm < self.max_radius:
-            return True
+        min_bound = self.min_radius - self.tolerance
+        max_bound = self.max_radius + self.tolerance
 
-        return False
-    def validate_bounding_box(self, bounding: tuple[float, float, float, float], center) -> bool: # TODO definire un tipe hint per le coordinate a 3 dimensioni
-        c = np.asarray(center)
-        if not self.validate_point(c):
-            return False
+        return min_bound <= p_norm <= max_bound
+
+    def validate_bounding_box(self, bounding: Tuple[float, float, float, float], center_z: float) -> bool:
+        if not self.is_valid_model():
+            raise RuntimeError("Il modello del robot non è configurato correttamente.")
 
         min_x, min_y, max_x, max_y = bounding
 
-        p_min = c - np.asarray([min_x, min_y], dtype=np.float64)
-        p_min_norm = np.linalg.norm(p_min)
+        corners_x = np.array([min_x, max_x, min_x, max_x], dtype=np.float64)
+        corners_y = np.array([min_y, min_y, max_y, max_y], dtype=np.float64)
 
-        p_max = c + np.asarray([max_x, max_y], dtype=np.float64)
-        p_max_norm = np.linalg.norm(p_max)
+        max_corner_dist = np.max(np.sqrt(corners_x ** 2 + corners_y ** 2 + center_z ** 2))
 
-        if (self.min_radius < p_min_norm < self.max_radius) and (self.min_radius < p_max_norm < self.max_radius):
-            return True
+        if max_corner_dist > (self.max_radius + self.tolerance):
+            return False
 
-        return False
+        closest_x = np.clip(0.0, min_x, max_x)
+        closest_y = np.clip(0.0, min_y, max_y)
+
+        min_dist = np.sqrt(closest_x ** 2 + closest_y ** 2 + center_z ** 2)
+
+        if min_dist < (self.min_radius - self.tolerance):
+            return False
+
+        return True
     def validate_shape_angles(self, angels: tuple[float, float]):
         print(f"angels: {angels}, robot tool width: {self.abs_tool_radius}, robot tool angle: {self.abs_tool_alpha}")
         return NotImplemented
 
     def is_valid_model(self) -> bool:
-        if (self.min_radius is None and
-                self.max_radius is None and
-                self.tolerance is None and
-                self.abs_tool_radius > self.tolerance and
-                self.abs_tool_alpha > self.tolerance and
-                self.min_radius < self.max_radius):
+        if None in (self._min_radius, self._max_radius, self._abs_tool_radius, self._abs_tool_alpha, self._tolerance):
             return False
+
+        if self._max_radius - self._min_radius <= self._tolerance:
+            return False
+
+        if self._abs_tool_radius <= self._tolerance or self._abs_tool_alpha <= self._tolerance:
+            return False
+
         return True
+
     @staticmethod
-    def validate_model(robot_instance):
+    def validate_model(robot_instance) -> bool:
         if not isinstance(robot_instance, Robot):
-            raise AttributeError("robot_instance is not an instance of Robot")
+            raise TypeError("Errore: l'oggetto fornito non è un'istanza della classe Robot.")
 
         return robot_instance.is_valid_model()
