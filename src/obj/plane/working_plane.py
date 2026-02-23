@@ -2,7 +2,7 @@ import numpy as np
 import warnings
 
 
-class WorkingSpace(object):
+class WorkingSpace:
     EPS_05 = 1e-5
     EPS_06 = 1e-6
     EPS_08 = 1e-8
@@ -12,35 +12,42 @@ class WorkingSpace(object):
     EPS_15 = 1e-15
     EPS_16 = np.finfo(np.float64).eps
 
-    def __init__(self, origin=(0, 0, 0), x_axis=(1, 0, 0), y_axis=(0, 1, 0), z_axis=(0, 0, 1), skip=False):
-        if not skip and not WorkingSpace.check_axes(x_axis, y_axis, z_axis, WorkingSpace.EPS_12):
-            raise AttributeError('x_axis, y_axis and z_axis are not compatible')
+    def __init__(self, origin=(0, 0, 0), x_axis=(1, 0, 0), y_axis=(0, 1, 0), z_axis=(0, 0, 1), _skip=False):
+        self._origin = np.asarray(origin, dtype=np.float64).flatten()
 
-        self._origin = origin
+        x_raw = np.asarray(x_axis, dtype=np.float64).flatten()
+        y_raw = np.asarray(y_axis, dtype=np.float64).flatten()
+        z_raw = np.asarray(z_axis, dtype=np.float64).flatten()
 
-        x = np.asarray(x_axis, dtype=np.float64).flatten() / np.linalg.norm(x_axis)
-        y = np.asarray(y_axis, dtype=np.float64).flatten() / np.linalg.norm(y_axis)
-        z = np.asarray(z_axis, dtype=np.float64).flatten() / np.linalg.norm(z_axis)
+        norm_x = np.linalg.norm(x_raw)
+        norm_y = np.linalg.norm(y_raw)
+        norm_z = np.linalg.norm(z_raw)
+
+        if norm_x < WorkingSpace.EPS_12 or norm_y < WorkingSpace.EPS_12 or norm_z < WorkingSpace.EPS_12:
+            raise ValueError('Gli assi forniti non possono essere vettori nulli (lunghezza pari a zero).')
+
+        x = x_raw / norm_x
+        y = y_raw / norm_y
+        z = z_raw / norm_z
+
+        if not _skip and not WorkingSpace.check_axes(x, y, z, WorkingSpace.EPS_12):
+            raise ValueError('Gli assi forniti (x_axis, y_axis, z_axis) non sono reciprocamente ortogonali.')
 
         self._x_axis = x
         self._y_axis = y
         self._normal = z
 
-        self._R = np.stack([
-            np.asarray(x, dtype=np.float64),
-            np.asarray(y, dtype=np.float64),
-            np.asarray(z, dtype=np.float64)
-        ])
+        self._R = np.stack([x, y, z])
 
         self.tolerance = WorkingSpace.EPS_10
 
     @classmethod
     def new_space_from_three_points(cls, origin: np.typing.ArrayLike[np.float64],
                                     x_hint: np.typing.ArrayLike[np.float64],
-                                    plane_hint: np.typing.ArrayLike[np.float64]) -> object:
-        o = np.asarray(origin, dtype=np.float64)
-        xh = np.asarray(x_hint, dtype=np.float64)
-        ph = np.asarray(plane_hint, dtype=np.float64)
+                                    plane_hint: np.typing.ArrayLike[np.float64]) -> 'WorkingSpace':
+        o = np.asarray(origin, dtype=np.float64).flatten()
+        xh = np.asarray(x_hint, dtype=np.float64).flatten()
+        ph = np.asarray(plane_hint, dtype=np.float64).flatten()
 
         v1 = xh - o
         v2 = ph - o
@@ -48,55 +55,59 @@ class WorkingSpace(object):
         len_v2 = np.linalg.norm(v2)
 
         if len_v1 < WorkingSpace.EPS_12 or len_v2 < WorkingSpace.EPS_12:
-            raise ValueError('x_hint and plane_hint are not compatible with origin')
+            raise ValueError("Impossibile definire gli assi: 'x_hint' o 'plane_hint' coincidono con l'origine.")
 
         ux = v1 / len_v1
 
         n_raw = np.cross(ux, v2)
         n_norm = np.linalg.norm(n_raw)
+
         if n_norm < WorkingSpace.EPS_12:
-            raise ValueError('three point are on the same line')
+            raise ValueError("Impossibile definire un piano: i tre punti forniti sono collineari.")
+
         n = n_raw / n_norm
 
         uy_raw = np.cross(n, ux)
         uy = uy_raw / np.linalg.norm(uy_raw)
 
         if cls.check_axes(ux, uy, n, WorkingSpace.EPS_12):
-            return cls(origin=o, x_axis=ux, y_axis=uy, z_axis=n, skip=True)
+            return cls(origin=o, x_axis=ux, y_axis=uy, z_axis=n, _skip=True)
 
-        raise ValueError()
+        raise RuntimeError("Errore fatale interno: gli assi generati dai tre punti non risultano ortogonali.")
 
     @classmethod
-    def new_space_from_normal(cls, origin: np.typing.NDArray[np.float64], normal: np.typing.NDArray[np.float64],
-                              x_hint: np.typing.NDArray[np.float64]) -> object:
-        o = np.array(origin, dtype=np.float64)
-        n_raw = np.array(normal, dtype=np.float64)
-        xh = np.array(x_hint, dtype=np.float64)
+    def new_space_from_normal(cls, origin: np.typing.ArrayLike[np.float64],
+                              normal: np.typing.ArrayLike[np.float64],
+                              x_hint: np.typing.ArrayLike[np.float64]) -> 'WorkingSpace':
+        o = np.asarray(origin, dtype=np.float64).flatten()
+        n_raw = np.asarray(normal, dtype=np.float64).flatten()
+        xh = np.asarray(x_hint, dtype=np.float64).flatten()
 
         n_len = np.linalg.norm(n_raw)
         if n_len < WorkingSpace.EPS_12:
-            raise ValueError('n is null')
+            raise ValueError("Impossibile definire il piano: la normale fornita è un vettore nullo.")
         n = n_raw / n_len
 
         x_raw = xh - o
         x_len = np.linalg.norm(x_raw)
         if x_len < WorkingSpace.EPS_12:
-            raise ValueError('x is null: x_hint and origin must be different')
-        ux = x_raw / x_len
+            raise ValueError("Impossibile definire l'orientamento: 'x_hint' coincide con l'origine.")
+        ux_hint = x_raw / x_len
 
-        y_raw = np.cross(n, ux)
+        y_raw = np.cross(n, ux_hint)
         y_len = np.linalg.norm(y_raw)
         if y_len < WorkingSpace.EPS_12:
-            raise ValueError('y is null: all vector are on the same line')
+            raise ValueError("Impossibile definire l'orientamento: 'x_hint' è perfettamente parallelo alla normale.")
+
         uy = y_raw / y_len
 
-        if not cls.check_axes(ux, uy, n, WorkingSpace.EPS_12):
-            x_raw = np.cross(uy, n)
-            ux = x_raw / np.linalg.norm(x_raw)
+        x_ortho_raw = np.cross(uy, n)
+        ux = x_ortho_raw / np.linalg.norm(x_ortho_raw)
 
-        if cls.check_axes(uy, ux, n, WorkingSpace.EPS_12):
-            return cls(origin=o, x_axis=ux, y_axis=uy, z_axis=uy, skip=True)
-        raise ValueError()
+        if cls.check_axes(ux, uy, n, WorkingSpace.EPS_12):
+            return cls(origin=o, x_axis=ux, y_axis=uy, z_axis=n, _skip=True)
+
+        raise RuntimeError("Errore fatale interno: gli assi generati non risultano ortogonali.")
 
     @classmethod
     def new_space_from_two_straight(cls, x_axis: np.typing.ArrayLike[np.float64],
@@ -170,41 +181,37 @@ class WorkingSpace(object):
     @property
     def x_axis(self) -> np.typing.NDArray[np.float64]:
         if self._x_axis is None:
-            raise AttributeError('x_axis is not set')
-
+            raise AttributeError('L\'asse X (x_axis) non è stato inizializzato. (ha valore None)')
         return self._x_axis
 
     @property
     def y_axis(self) -> np.typing.NDArray[np.float64]:
         if self._y_axis is None:
-            raise AttributeError('y_axis is not set')
-
+            raise AttributeError('L\'asse Y (y_axis) non è stato inizializzato. (ha valore None)')
         return self._y_axis
 
     @property
     def z_axis(self) -> np.typing.NDArray[np.float64]:
         if self._normal is None:
-            raise AttributeError('z_axis is not set')
-
+            raise AttributeError('L\'asse Z (z_axis) non è stato inizializzato. (ha valore None)')
         return self._normal
 
     @property
     def normal(self) -> np.typing.NDArray[np.float64]:
         if self._normal is None:
-            raise AttributeError('z_axis is not set')
-
+            raise AttributeError('La normale (normal) non è stata inizializzata. (ha valore None)')
         return self._normal
 
     @property
     def space_matrix(self) -> np.typing.NDArray[np.float64]:
         if self._R is None:
-            raise AttributeError('R is not set')
+            raise AttributeError('La matrice dello spazio (space_matrix / R) non è stata inizializzata. (ha valore None)')
         return self._R
 
     @property
     def space_transposed_matrix(self) -> np.typing.NDArray[np.float64]:
         if self._R is None:
-            raise AttributeError('R_T is not set')
+            raise AttributeError('Impossibile calcolare la trasposta: la matrice dello spazio non è inizializzata. (ha valore None)')
         return np.ascontiguousarray(self._R.T)
 
     @property
@@ -212,13 +219,12 @@ class WorkingSpace(object):
         if WorkingSpace.check_axes(self.x_axis, self.y_axis, self._normal, self.tolerance):
             return np.asarray([self.x_axis, self.y_axis, self.z_axis], dtype=np.float64)
 
-        raise AttributeError('x_axis, y_axis, z_axis are not compatible')
+        raise RuntimeError('Stato corrotto: x_axis, y_axis e z_axis non sono più mutuamente ortogonali.')
 
     @property
     def origin(self) -> np.typing.NDArray[np.float64]:
         if self._origin is None:
-            raise AttributeError('origin is not set')
-
+            raise AttributeError('L\'origine (origin) non è stata inizializzata. (ha valore None)')
         return self._origin
 
     def global_to_local(self, points: np.typing.ArrayLike[np.float64]) -> np.typing.NDArray[np.float64]:
@@ -232,26 +238,36 @@ class WorkingSpace(object):
         return rotated_points + self.origin
 
     def space_to_local(self, points: np.typing.ArrayLike[np.float64], **kwargs) -> np.typing.NDArray[np.float64]:
-        other_space_matrix = kwargs.get('matrix', None)
-        other_space_center = kwargs.get('center', None)
         other_space = kwargs.get('space', None)
 
         if other_space is not None:
-            if not isinstance(other_space, WorkingSpace) or not other_space.is_valid():
-                raise AttributeError('other_space is not valid')
+            if not isinstance(other_space, WorkingSpace):
+                raise TypeError("L'argomento 'space' deve essere un'istanza di WorkingSpace.")
+            if not other_space.is_valid():
+                raise ValueError("Lo spazio di partenza ('space') risulta corrotto o non valido.")
 
             global_points = other_space.local_to_global(points)
             return self.global_to_local(global_points)
 
-        if other_space_matrix is None and other_space_center is None:
-            raise AttributeError('space_matrix and center  must not be all None')
+        other_matrix = kwargs.get('matrix', None)
+        other_center = kwargs.get('center', None)
 
-        if not WorkingSpace.validate_matrix(other_space_matrix):
-            print('matrix introduces deformation, the axes are not orthonormal')
+        if other_matrix is None and other_center is None:
+            raise ValueError("Parametri insufficienti: devi fornire 'space', oppure 'matrix' e/o 'center'.")
+
+        if other_matrix is None:
+            other_matrix = np.eye(3, dtype=np.float64)
+        else:
+            if not WorkingSpace.validate_matrix(other_matrix):
+                warnings.warn('La matrice fornita (other_matrix) introduce deformazioni (non è ortonormale).')
+
+        if other_center is None:
+            other_center = np.zeros(3, dtype=np.float64)
+        else:
+            other_center = np.asarray(other_center, dtype=np.float64)
 
         points_array = np.asarray(points, dtype=np.float64)
-        shifted_points = points_array - self.origin
-        global_points = shifted_points @ other_space_matrix
+        global_points = points_array @ other_matrix + other_center
         return self.global_to_local(global_points)
 
     def invert_x(self):
