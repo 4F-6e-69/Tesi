@@ -110,19 +110,23 @@ class WorkingSpace:
         raise RuntimeError("Errore fatale interno: gli assi generati non risultano ortogonali.")
 
     @classmethod
-    def new_space_from_two_straight(cls, x_axis: np.typing.ArrayLike[np.float64],
-                                    x_hint: np.typing.ArrayLike[np.float64], y_axis: np.typing.ArrayLike[np.float64],
-                                    y_hint: np.typing.ArrayLike[np.float64], verbose=False) -> object:
-        x_raw = np.array(x_axis, dtype=np.float64)
-        y_raw = np.array(y_axis, dtype=np.float64)
-        xh = np.array(x_hint, dtype=np.float64)
-        yh = np.array(y_hint, dtype=np.float64)
+    def new_space_from_two_straight(cls,
+                                    x_axis: np.typing.ArrayLike[np.float64],
+                                    x_hint: np.typing.ArrayLike[np.float64],
+                                    y_axis: np.typing.ArrayLike[np.float64],
+                                    y_hint: np.typing.ArrayLike[np.float64],
+                                    verbose: bool = False) -> 'WorkingSpace':
+
+        x_raw = np.asarray(x_axis, dtype=np.float64).flatten()
+        y_raw = np.asarray(y_axis, dtype=np.float64).flatten()
+        xh = np.asarray(x_hint, dtype=np.float64).flatten()
+        yh = np.asarray(y_hint, dtype=np.float64).flatten()
 
         x_len = np.linalg.norm(x_raw)
         y_len = np.linalg.norm(y_raw)
 
         if x_len < WorkingSpace.EPS_12 or y_len < WorkingSpace.EPS_12:
-            raise ValueError('x_axis o y_axis non sono validi (lunghezza nulla)')
+            raise ValueError("I vettori di direzione 'x_axis' o 'y_axis' non sono validi (lunghezza nulla).")
 
         x_dir = x_raw / x_len
         y_dir = y_raw / y_len
@@ -137,7 +141,7 @@ class WorkingSpace:
             dist_between_lines = np.linalg.norm(rejection)
 
             if dist_between_lines < WorkingSpace.EPS_12:
-                raise ValueError('Le rette sono collineari (coincidenti): impossibile definire un piano unico.')
+                raise ValueError("Le rette fornite sono collineari (coincidenti): impossibile definire un piano unico.")
 
             n_raw = np.cross(x_dir, dp)
             n = n_raw / np.linalg.norm(n_raw)
@@ -145,6 +149,7 @@ class WorkingSpace:
             center = xh
             final_ux = x_dir
             final_uy = np.cross(n, final_ux)
+
         else:
             if np.allclose(xh, yh, atol=WorkingSpace.EPS_12):
                 center = xh
@@ -164,20 +169,18 @@ class WorkingSpace:
                 dist_mismatch = np.linalg.norm(point_on_ux - point_on_uy)
 
                 if dist_mismatch > WorkingSpace.EPS_05:
-                    raise ValueError(f"Le rette sono sghembe (non complanari). Distanza: {dist_mismatch:.2e}")
+                    raise ValueError(f"Le rette sono sghembe e non complanari. Distanza minima: {dist_mismatch:.2e}")
 
                 center = point_on_ux + (point_on_uy - point_on_ux) / 2.0
 
             n = cross_uv / norm_cross
             final_ux = x_dir
-
             final_uy = np.cross(n, final_ux)
 
         if cls.check_axes(final_ux, final_uy, n, WorkingSpace.EPS_05):
-            return cls(origin=center, x_axis=final_ux, y_axis=final_uy, z_axis=n, skip=True)
+            return cls(origin=center, x_axis=final_ux, y_axis=final_uy, z_axis=n, _skip=True)
 
-        raise RuntimeError("Fatal Error: Gli assi generati non sono ortogonali")
-
+        raise RuntimeError("Errore fatale interno: gli assi generati non risultano ortogonali.")
     @property
     def x_axis(self) -> np.typing.NDArray[np.float64]:
         if self._x_axis is None:
