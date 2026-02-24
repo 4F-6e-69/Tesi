@@ -202,7 +202,7 @@ class Shape(ABC):
     def calc_barycenter(points: np.typing.ArrayLike[np.float64]) -> np.typing.NDArray[np.float64]:
         points_arr = np.asarray(points)
         if len(points_arr) < 3:
-            raise ValueError("Impossibile calcolare center: vertici insufficienti")
+            raise ValueError("Impossibile calcolare il baricentro: vertici insufficienti")
         return np.mean(points_arr, axis=0)
 
     def reset_cache(self):
@@ -237,22 +237,34 @@ class Shape(ABC):
             warnings.warn(f"Warning: riferimento origin non definito")
 
         self._closure = Shape._translate_points(offset, self.closure)
-        self._barycenter = Shape._translate_points(offset, self.barycenter)
+        if self._barycenter is not None:
+            self._barycenter = Shape._translate_points(offset, self._barycenter)
 
         self.reset(["boundary"])
     def rotate(self, angle_rad: float):
         if not self.closure_is_valid:
-            raise ValueError("Impossibile rotare: contorno non definito")
+            raise ValueError("Impossibile ruotare: contorno non definito")
 
-        self._closure = Shape._rotate_points(angle_rad, self.closure, self.origin)
-        self._barycenter = Shape._rotate_points(angle_rad, self.barycenter, self.origin)
+        ref = self._origin
+        if ref is None:
+            warnings.warn("Origine non definita. Verrà utilizzato (0,0) come riferimento.")
+            ref = np.zeros(2)
+
+        self._closure = Shape._rotate_points(angle_rad, self.closure, ref)
+        if self._barycenter is not None:
+            self._barycenter = Shape._rotate_points(angle_rad, self._barycenter, ref)
 
         self.reset(["boundary"])
     def scale(self, factors: np.typing.ArrayLike[np.float64]):
         if not self.closure_is_valid:
             raise ValueError("Impossibile scalare: contorno non definito")
 
-        self._closure = Shape._scale_points(factors, self.closure, self.origin)
+        ref = self._origin
+        if ref is None:
+            warnings.warn("Origine non definita. Verrà utilizzato (0,0) come riferimento.")
+            ref = np.zeros(2)
+
+        self._closure = Shape._scale_points(factors, self.closure, ref)
 
         self.reset_cache()
 
@@ -311,7 +323,7 @@ class Shape(ABC):
         return ax
     def draw(self, ax: Optional[plt.Axes] = None, show: bool = True, **kwargs) -> Optional[plt.Axes]:
         if self.closure is None or len(self.closure) < 3:
-            print("Warning: Nessun contorno da disegnare.")
+            warnings.warn("Nessun contorno disponibile per il disegno.") # Al posto di print()
             return ax
 
         if ax is None:
