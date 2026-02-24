@@ -70,21 +70,29 @@ class Shape(ABC):
     @property
     def origin(self) -> np.typing.NDArray[np.float64]:
         return self._origin
+    def _ensure_origin(self, new_origin: np.typing.ArrayLike[np.float64]) -> np.typing.NDArray[np.float64]:
+        no = np.asarray(new_origin, dtype=np.float64, copy=True).flatten()
+        if no.shape != self._origin.shape:
+            raise ValueError(f"Dimensione errata: attesa {self._origin.shape}, ricevuta {no.shape}")
+
+        return no
     @property
     def origin_is_center(self) -> bool:
         return self._origin_is_center
     @origin.setter
     def origin(self, origin: np.typing.ArrayLike[np.float64]):
-        new_origin = np.array(origin, dtype=np.float64, copy=True).flatten()
+        new_o = self._ensure_origin(origin)
 
-        if new_origin.shape != self._origin.shape:
-            raise ValueError(f"Dimensione errata: attesa {self._origin.shape}, ricevuta {new_origin.shape}")
-
-        self._origin = new_origin
-        if self.closure_is_valid:
-            center = Shape.calc_barycenter(self.closure)
-            self._origin_is_center = np.allclose(new_origin, center, atol=self.tolerance)
-        else:
+        self._origin = new_o
+        self._set_origin_is_center()
+    def _set_origin_is_center(self):
+        try:
+            if self.closure_is_valid:
+                center = self.barycenter
+                self._origin_is_center = np.allclose(self.origin, center, atol=self.tolerance)
+            else:
+                self._origin_is_center = False
+        except ValueError:
             self._origin_is_center = False
 
     @property
