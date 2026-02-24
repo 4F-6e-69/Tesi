@@ -149,6 +149,8 @@ class Robot:
             return False
 
         return True
+
+    #TODO not implemented
     def validate_shape_angles(self, angels: tuple[float, float]):
         print(f"angels: {angels}, robot tool width: {self.abs_tool_radius}, robot tool angle: {self.abs_tool_alpha}")
         return NotImplemented
