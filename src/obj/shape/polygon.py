@@ -48,6 +48,12 @@ class Polygon(Shape):
         if self._area is None:
             self._ensure_valid_vertices("area")
             self._area = Shape.calc_area(self.vertices)
+        return abs(self._area)
+    @property
+    def sign_area(self) -> float:
+        if self._area is None:
+            self._ensure_valid_vertices("area")
+            self._area = Shape.calc_area(self.vertices)
         return self._area
     @property
     def boundary(self) -> tuple[float, float, float, float, float, float] | None:

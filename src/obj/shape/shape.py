@@ -106,6 +106,12 @@ class Shape(ABC):
         if self._area is None:
             self._ensure_valid_closure("area")
             self._area = Shape.calc_area(self.closure)
+        return abs(self._area)
+    @property
+    def sign_area(self) -> float:
+        if self._area is None:
+            self._ensure_valid_closure("area con segno")
+            self._area = Shape.calc_area(self.closure)
         return self._area
     @property
     def boundary(self) -> tuple[float, float, float, float, float, float] | None:
@@ -180,7 +186,7 @@ class Shape(ABC):
         y_next = np.roll(y, -1)
 
         double_area = np.sum(x * y_next - x_next * y)
-        return 0.5 * np.abs(double_area)
+        return 0.5 * double_area
     @staticmethod
     def calc_perimeter(points: np.typing.ArrayLike[np.float64]) -> float:
         points_arr = np.asarray(points, dtype=np.float64)
@@ -248,7 +254,7 @@ class Shape(ABC):
         if self._barycenter is not None:
             self._barycenter = Shape._translate_points(offset, self._barycenter)
 
-        self.reset(["boundary"])
+        self.reset(["boundary", "area"])
     def rotate(self, angle_rad: float):
         if not self.closure_is_valid:
             raise ValueError("Impossibile ruotare: contorno non definito")
@@ -262,7 +268,7 @@ class Shape(ABC):
         if self._barycenter is not None:
             self._barycenter = Shape._rotate_points(angle_rad, self._barycenter, ref)
 
-        self.reset(["boundary"])
+        self.reset(["boundary", "area"])
     def scale(self, factors: np.typing.ArrayLike[np.float64]):
         if not self.closure_is_valid:
             raise ValueError("Impossibile scalare: contorno non definito")
