@@ -5,7 +5,7 @@ from src.obj.shape.parametric_curve import ParametricCurve
 from src.obj.shape.shape import Shape
 
 class Circle(ParametricCurve):
-    def __init__(self, radius: float, center: np.typing.ArrayLike = (0, 0), step: float = 0.1):
+    def __init__(self, radius: float = 12, center: np.typing.ArrayLike = (0, 0), step: float = 0.1):
         if radius <= 0:
             radius = abs(float(radius))
             warnings.warn("Il raggio deve essere strettamente positivo.")
@@ -15,6 +15,9 @@ class Circle(ParametricCurve):
         self._radius = float(radius)
         self._center = self.origin.copy()
         self._origin_is_center = True
+
+        self._min_closure_step = 2 * np.pi * self._radius / 10000
+        self._max_closure_step = 2 * np.pi * self._radius / 6
 
 
     @property

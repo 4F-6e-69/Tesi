@@ -39,3 +39,8 @@ class ParametricCurve(Shape, ABC):
         generated_points = self.point_at(t_values)
 
         self._closure = generated_points
+
+    def draw(self):
+        self._discretization()
+
+        super().draw()
