@@ -4,7 +4,7 @@ from src.obj.shape.parametric_curve import ParametricCurve
 from src.obj.shape.shape import Shape
 
 class Spline(ParametricCurve):
-    def __init__(self, points: np.typing.ArrayLike[float], divider: float = 40.0):
+    def __init__(self, points: np.typing.ArrayLike, divider: float = 40.0):
         super().__init__()
 
         pts = np.array(points)
@@ -35,7 +35,7 @@ class Spline(ParametricCurve):
         self._area = Shape.calc_area(high_definition_closure)
         self._boundary = Shape.calc_boundary(high_definition_closure)
 
-    def point_at(self, t: np.typing.ArrayLike[float]) -> np.typing.NDArray[np.float64]:
+    def point_at(self, t: np.typing.ArrayLike) -> np.typing.NDArray[np.float64]:
         x, y = scipy.interpolate.splev(t, self.__tck)
         return np.concatenate((x, y), axis=1)
     @property

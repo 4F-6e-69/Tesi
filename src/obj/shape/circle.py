@@ -5,7 +5,7 @@ from src.obj.shape.parametric_curve import ParametricCurve
 from src.obj.shape.shape import Shape
 
 class Circle(ParametricCurve):
-    def __init__(self, radius: float, center: np.typing.ArrayLike[np.float64] = (0, 0), step: float = 0.1):
+    def __init__(self, radius: float, center: np.typing.ArrayLike = (0, 0), step: float = 0.1):
         if radius <= 0:
             radius = abs(float(radius))
             warnings.warn("Il raggio deve essere strettamente positivo.")
@@ -33,7 +33,7 @@ class Circle(ParametricCurve):
         return self._center
 
     @center.setter
-    def center(self, value: np.typing.ArrayLike[np.float64]):
+    def center(self, value: np.typing.ArrayLike):
         new_c = np.array(value, dtype=np.float64)
 
         if new_c.shape != (2,):
@@ -76,7 +76,7 @@ class Circle(ParametricCurve):
     @property
     def is_closed_loop(self) -> bool:
         return True
-    def point_at(self, t: np.typing.ArrayLike[np.float64]) -> np.typing.NDArray[np.float64]:
+    def point_at(self, t: np.typing.ArrayLike) -> np.typing.NDArray[np.float64]:
         x = self.radius * np.cos(t)
         y = self.radius * np.sin(t)
 
@@ -85,7 +85,7 @@ class Circle(ParametricCurve):
 
         return self.center + np.column_stack((x, y))
 
-    def translate(self, offset: np.typing.ArrayLike[np.float64]):
+    def translate(self, offset: np.typing.ArrayLike):
         delta = np.asarray(offset, dtype=np.float64)
         if delta.shape != (2,):
             raise ValueError("L'offset deve essere (dx, dy)")
@@ -106,7 +106,7 @@ class Circle(ParametricCurve):
         self._center = Shape._rotate_points(angle_rad, self._center, ref)
         self._closure = None
         self.reset(["boundary"])
-    def scale(self, factors: np.typing.ArrayLike[np.float64], ref_center: bool = True):
+    def scale(self, factors: np.typing.ArrayLike, ref_center: bool = True):
         s = np.asarray(factors, dtype=np.float64)
         if s.ndim == 0:
             sx = sy = float(s)

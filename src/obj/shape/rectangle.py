@@ -4,7 +4,7 @@ import numpy as np
 from src.obj.shape.polygon import Polygon
 
 class Rectangle(Polygon):
-    def __init__(self, origin: np.typing.ArrayLike[np.float64] = (0, 0), origin_is_center: bool = False, width: float = 17.5, height: float = 12.5):
+    def __init__(self, origin: np.typing.ArrayLike = (0, 0), origin_is_center: bool = False, width: float = 17.5, height: float = 12.5):
         self._width = float(width)
         self._height = float(height)
 
@@ -36,13 +36,13 @@ class Rectangle(Polygon):
         super().__init__(vertices=final_vertices, origin=shape_origin)
 
     @classmethod
-    def new_rectangle(cls, o: np.typing.ArrayLike[np.float64], a: np.typing.ArrayLike[np.float64], c: np.typing.ArrayLike[np.float64]):
+    def new_rectangle(cls, o: np.typing.ArrayLike, a: np.typing.ArrayLike, c: np.typing.ArrayLike):
         w = c[0] - o[0]
         h = a[1] - o[1]
 
         return cls(origin=o, origin_is_center=False, width=w, height=h)
     @classmethod
-    def new_rect(cls, a: np.typing.ArrayLike[np.float64], c: np.typing.ArrayLike[np.float64]):
+    def new_rect(cls, a: np.typing.ArrayLike, c: np.typing.ArrayLike):
         w = np.abs(c[0] - a[0])
         h = np.abs(a[1] - c[1])
 
@@ -74,7 +74,7 @@ class Rectangle(Polygon):
             self._barycenter = (self.vertices[0] + self.vertices[2]) / 2
         return self._barycenter
 
-    def scale(self, factor: np.typing.ArrayLike[float]):
+    def scale(self, factor: np.typing.ArrayLike):
         s = np.asarray(factor, dtype=float)
 
         if s.ndim == 0:

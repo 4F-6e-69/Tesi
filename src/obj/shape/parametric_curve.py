@@ -7,14 +7,14 @@ from src.obj.shape.shape import Shape
 
 
 class ParametricCurve(Shape, ABC):
-    def __init__(self, origin: np.typing.ArrayLike[np.float64] = (0, 0), step: float = 0.1):
+    def __init__(self, origin: np.typing.ArrayLike = (0, 0), step: float = 0.1):
         super().__init__()
 
         self.origin = origin
         self.closure_step = step
 
     @abstractmethod
-    def point_at(self, t: np.typing.ArrayLike[float]) -> np.typing.NDArray[np.float64]:
+    def point_at(self, t: np.typing.ArrayLike) -> np.typing.NDArray[np.float64]:
         pass
 
     @property

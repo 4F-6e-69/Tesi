@@ -70,7 +70,7 @@ class Shape(ABC):
     @property
     def origin(self) -> np.typing.NDArray[np.float64]:
         return self._origin
-    def _ensure_origin(self, new_origin: np.typing.ArrayLike[np.float64]) -> np.typing.NDArray[np.float64]:
+    def _ensure_origin(self, new_origin: np.typing.ArrayLike) -> np.typing.NDArray[np.float64]:
         no = np.asarray(new_origin, dtype=np.float64, copy=True).flatten()
         if no.shape != self._origin.shape:
             raise ValueError(f"Dimensione errata: attesa {self._origin.shape}, ricevuta {no.shape}")
@@ -80,7 +80,7 @@ class Shape(ABC):
     def origin_is_center(self) -> bool:
         return self._origin_is_center
     @origin.setter
-    def origin(self, origin: np.typing.ArrayLike[np.float64]):
+    def origin(self, origin: np.typing.ArrayLike):
         new_o = self._ensure_origin(origin)
 
         self._origin = new_o
@@ -174,7 +174,7 @@ class Shape(ABC):
         pass
 
     @staticmethod
-    def calc_area(points: np.typing.ArrayLike[np.float64]) -> float:
+    def calc_area(points: np.typing.ArrayLike) -> float:
         points_arr = np.asarray(points, dtype=np.float64)
         if len(points_arr) < 3:
             raise ValueError("Impossibile calcolare l'area: vertici insufficienti")
@@ -188,7 +188,7 @@ class Shape(ABC):
         double_area = np.sum(x * y_next - x_next * y)
         return 0.5 * double_area
     @staticmethod
-    def calc_perimeter(points: np.typing.ArrayLike[np.float64]) -> float:
+    def calc_perimeter(points: np.typing.ArrayLike) -> float:
         points_arr = np.asarray(points, dtype=np.float64)
         if len(points_arr) < 3:
             raise ValueError("Impossibile calcolare il perimetro: vertici insufficienti")
@@ -197,7 +197,7 @@ class Shape(ABC):
         dists = np.linalg.norm(diffs, axis=1)
         return np.sum(dists)
     @staticmethod
-    def calc_boundary(points: np.typing.ArrayLike[np.float64]) -> Tuple[float, float, float, float, float, float]:
+    def calc_boundary(points: np.typing.ArrayLike) -> Tuple[float, float, float, float, float, float]:
         points_arr = np.asarray(points)
         if len(points_arr) < 3:
             raise ValueError("Impossibile calcolare il boundary: vertici insufficienti")
@@ -213,7 +213,7 @@ class Shape(ABC):
         new_bounding = (x_min, x_max, y_min, y_max, theta_min, theta_max)
         return new_bounding
     @staticmethod
-    def calc_barycenter(points: np.typing.ArrayLike[np.float64]) -> np.typing.NDArray[np.float64]:
+    def calc_barycenter(points: np.typing.ArrayLike) -> np.typing.NDArray[np.float64]:
         points_arr = np.asarray(points)
         if len(points_arr) < 3:
             raise ValueError("Impossibile calcolare il baricentro: vertici insufficienti")
@@ -243,7 +243,7 @@ class Shape(ABC):
             elif target == "barycenter":
                 self._barycenter = None
 
-    def translate(self, offset: np.typing.ArrayLike[np.float64]):
+    def translate(self, offset: np.typing.ArrayLike):
         if not self.closure_is_valid:
             raise ValueError("Impossibile traslare: contorno non definito")
 
@@ -269,7 +269,7 @@ class Shape(ABC):
             self._barycenter = Shape._rotate_points(angle_rad, self._barycenter, ref)
 
         self.reset(["boundary", "area"])
-    def scale(self, factors: np.typing.ArrayLike[np.float64]):
+    def scale(self, factors: np.typing.ArrayLike):
         if not self.closure_is_valid:
             raise ValueError("Impossibile scalare: contorno non definito")
 
@@ -283,14 +283,14 @@ class Shape(ABC):
         self.reset_cache()
 
     @staticmethod
-    def _translate_points(offset: np.typing.ArrayLike[np.float64], points: np.typing.ArrayLike[np.float64]):
+    def _translate_points(offset: np.typing.ArrayLike, points: np.typing.ArrayLike):
         delta = np.asarray(offset, dtype=np.float64).flatten()
         if delta.shape != (2,):
             raise ValueError("L'offset deve essere un vettore di 2 elementi (dx, dy)")
 
         return points + delta
     @staticmethod
-    def _rotate_points(angle_rad: float, points: np.typing.ArrayLike[np.float64], ref: np.typing.ArrayLike[np.float64]):
+    def _rotate_points(angle_rad: float, points: np.typing.ArrayLike, ref: np.typing.ArrayLike):
         if np.isclose(angle_rad, 0.0, atol=WorkingSpace.EPS_12):
             return points.copy()
 

@@ -10,7 +10,7 @@ from matplotlib import pyplot as plt
 
 
 class Polygon(Shape):
-    def __init__(self, vertices: np.typing.ArrayLike[np.float64], origin: np.typing.ArrayLike[np.float64] = np.asarray([0, 0], dtype=float)):
+    def __init__(self, vertices: np.typing.ArrayLike, origin: np.typing.ArrayLike = (.0, .0)):
         super().__init__()
 
         self._vertices: np.typing.NDArray[np.float64] = np.asarray(vertices, dtype=np.float64)
@@ -158,7 +158,7 @@ class Polygon(Shape):
         else:
             self._closure = self._vertices.copy()
 
-    def translate(self, offset: np.typing.ArrayLike[np.float64]):
+    def translate(self, offset: np.typing.ArrayLike):
         self._ensure_valid_vertices("traslazione")
 
         if self.origin is None:
@@ -184,7 +184,7 @@ class Polygon(Shape):
 
         self.reset(["boundary"])
         self._closure = None
-    def scale(self, factors: np.typing.ArrayLike[np.float64]):
+    def scale(self, factors: np.typing.ArrayLike):
         self._ensure_valid_vertices("scala")
 
         ref = self._origin
