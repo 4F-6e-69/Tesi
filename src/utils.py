@@ -4,51 +4,61 @@ from dataclasses import dataclass
 from typing import Union
 
 CoordsDType = Union[int, float, np.number]
+ArrayLike = Union[np.typing.ArrayLike, np.typing.NDArray]
 
 def validate_3d_coordinates(coordinates):
     if not isinstance(coordinates, np.typing.ArrayLike):
         raise TypeError("Le coordinate devono essere di tipo array-numpy o array-like-numpy")
 
     new_coord = np.asarray(coordinates).flatten()
+    update = new_coord.base is coordinates.base
     if new_coord.shape != (3,):
         raise ValueError("Le coordinate devono avere dimensione (2,)")
 
-    return __ensure_dtype(new_coord)
+    result = __ensure_valid_dtype(new_coord)
+    return result if update or result.base is new_coord.base else None
 def validate_2d_coordinates(coordinates):
     if not isinstance(coordinates, np.typing.ArrayLike):
         raise TypeError("Le coordinate devono essere di tipo array-numpy o array-like-numpy")
 
     new_coord = np.asarray(coordinates).flatten()
+    update = new_coord.base is coordinates.base
     if new_coord.shape != (2, ):
         raise ValueError("Le coordinate devono avere dimensione (2,)")
 
-    return __ensure_dtype(new_coord)
+    result = __ensure_valid_dtype(new_coord)
+    return result if update or result.base is new_coord.base else None
 def validate_array_of_2d_coordinates(coordinates):
     if not isinstance(coordinates, np.typing.ArrayLike):
         raise TypeError("Le coordinate devono essere di tipo array-numpy o array-like-numpy")
 
     new_coord = np.asarray(coordinates)
+    update = new_coord.base is coordinates.base
     if new_coord.shape[1] != 2:
         raise ValueError("Le coordinate devono avere dimensione (n, 2)")
 
-    return __ensure_dtype(new_coord)
+    result = __ensure_valid_dtype(new_coord)
+    return result if update or result.base is new_coord.base else None
 def validate_array_of_3d_coordinates(coordinates):
     if not isinstance(coordinates, np.typing.ArrayLike):
         raise TypeError("Le coordinate devono essere di tipo array-numpy o array-like-numpy")
 
     new_coord = np.asarray(coordinates)
+    update = new_coord.base is coordinates.base
     if new_coord.shape[1] != 3:
         raise ValueError("Le coordinate devono avere dimensione (n, 3)")
 
-    return __ensure_dtype(new_coord)
-def __ensure_dtype(array: np.typing.NDArray):
+    result = __ensure_valid_dtype(new_coord)
+    return result if update or result.base is new_coord.base else None
+def __ensure_valid_dtype(array: np.typing.NDArray) -> np.typing.NDArray[CoordsDType] | None:
     if array.dtype != CoordsDType:
-        return TypeError("Tipo di coordinata non valida")
+        raise TypeError("Tipo di coordinata non valida")
 
     if array.dtype != np.float64 or array.dtype != float:
         warnings.warn(f"Casting implicito da {array.dtype} a np.float64")
+        return np.asarray(array, dtype=np.float64)
 
-    return np.asarray(array, dtype=np.float64)
+    return None
 
 @dataclass
 class Eps:
