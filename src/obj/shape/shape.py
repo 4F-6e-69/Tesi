@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 
 from matplotlib import pyplot as plt
 from numpy import typing as nptyping
-
 from typing import Tuple, List, Literal, Optional
 from src.utils import *
 
@@ -312,7 +311,7 @@ class Shape(ABC):
         ax.grid(True, linestyle='--', alpha=0.5)
         ax.set_aspect('equal')
         return ax
-    def draw(self, ax: plt.Axes, points: ArrayLike, show: bool = False, **kwargs) -> plt.Axes | None:
+    def draw(self, ax: plt.Axes = None, points: ArrayLike = None, show: bool = False, **kwargs) -> plt.Axes | None:
 
         ax = Shape.style_graph() if ax is None else ax
         if self._is_valid_closure():
