@@ -332,8 +332,7 @@ class Shape(ABC):
         :raises ValueError: Se i punti della geometria non sono validi o sono meno di 3 (gestito da `_ensure_property`).
         """
         if self._closure_step_min is None:
-            self._ensure_property("step_minimo")
-            self._closure_step_min = self.calc_min_closure_step(self.closure)
+            self._closure_step_min = self.calc_min_closure_step()
         return self._closure_step_min
     @property
     def closure_step_max(self) -> float:
@@ -348,8 +347,7 @@ class Shape(ABC):
         :raises ValueError: Se i punti della geometria non sono validi o sono meno di 3.
         """
         if self._closure_step_max is None:
-            self._ensure_property("step_massimo")
-            self._closure_step_max = self.calc_max_closure_step(self.closure)
+            self._closure_step_max = self.calc_max_closure_step()
         return self._closure_step_max
 
     def discretize(self, custom_step: Optional[float] = None):
@@ -365,11 +363,12 @@ class Shape(ABC):
         :type custom_step: Optional[float]
         :raises UserWarning: Emette un warning (non blocca l'esecuzione) se la discretizzazione produce una geometria non valida (es. meno di 3 punti).
         """
-        if np.isclose(custom_step, self._closure_step, atol=Eps.eps08):
-            try:
+
+        try:
+            if not np.isclose(custom_step, self._closure_step, atol=Eps.eps08):
                 self.closure_step = custom_step
-            except (TypeError, ValueError):
-                pass
+        except (TypeError, ValueError):
+            pass
 
         self._discretization()
         if not self._is_valid_closure():
@@ -388,7 +387,7 @@ class Shape(ABC):
         pass
 
     @abstractmethod
-    def calc_min_closure_step(self, points: ArrayLike) -> float:
+    def calc_min_closure_step(self, **kwargs) -> float:
         """
         Calcola la distanza minima tra i vertici consecutivi della geometria.
 
@@ -401,7 +400,7 @@ class Shape(ABC):
         """
         pass
     @abstractmethod
-    def calc_max_closure_step(self, points: ArrayLike) -> float:
+    def calc_max_closure_step(self, **kwargs) -> float:
         """
         Calcola la distanza massima tra i vertici consecutivi della geometria.
 
@@ -574,7 +573,9 @@ class Shape(ABC):
         :raises ValueError: Se l'offset non ha dimensione esattamente pari a (2,).
         """
         delta = np.asarray(offset, dtype=np.float64).flatten()
-        coords = validate_2d_coordinates(points)
+        coords = validate_array_of_2d_coordinates(points)
+        if coords is None:
+            coords = points
 
         if delta.shape != (2,):
             raise ValueError("L'offset deve essere un vettore di 2 elementi (dx, dy)")
@@ -604,7 +605,9 @@ class Shape(ABC):
         :rtype: nptyping.NDArray[np.float64]
         """
         angle_rad = angle if is_radiant else np.deg2rad(angle)
-        coords = validate_2d_coordinates(points)
+        coords = validate_array_of_2d_coordinates(points)
+        if coords is None:
+            coords = points
 
         if np.isclose(angle_rad, 0.0, atol=Eps.eps08):
             return coords.copy()
@@ -639,7 +642,9 @@ class Shape(ABC):
         :raises UserWarning: Emette un avviso se uno o entrambi i fattori di scala sono prossimi allo zero (la geometria collassa in una linea o in un punto).
         """
         s = np.asarray(factor, dtype=np.float64)
-        coords = validate_2d_coordinates(points)
+        coords = validate_array_of_2d_coordinates(points)
+        if coords is None:
+            coords = points
 
         if s.ndim == 1 and s.size == 2:
             s = s.reshape(1, 2)

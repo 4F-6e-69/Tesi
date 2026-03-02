@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Optional
 from numpy import typing as nptyping
 from scipy.interpolate import splprep, splev, interp1d
 
@@ -16,31 +16,20 @@ class ClosedSpline(ParametricCurve):
     Dispone di un sistema a doppio livello di dettaglio: una curva ad alta definizione (HD) per calcoli geometrici precisi, e un contorno discretizzato (closure) campionato a distanze equidistanti per il rendering o altre operazioni discrete.
     """
     def __init__(self, points, smoothness: float = 0.25, high_definition_points: int = 10000):
-        """
-        Inizializza la spline chiusa calcolando i punti di controllo e la versione HD.
-
-        Utilizza `splprep` con parametro `per=1` per garantire che la curva sia perfettamente chiusa e continua ai bordi (C2 continua).
-
-        :param points: L'array dei punti di controllo (nodi) iniziali.
-        :type points: ArrayLike
-        :param smoothness: Fattore di smussamento `s`.
-        :type smoothness: float
-        :param high_definition_points: Numero di campioni per la curva ad alta risoluzione (default 10.000).
-        :type high_definition_points: int
-        """
+        super().__init__()
         new_points_array = validate_array_of_2d_coordinates(points)
-        points_x = new_points_array[:, 0]
-        points_y = new_points_array[:, 1]
+        if new_points_array is None:
+            new_points_array = np.asarray(points)
 
-        spline = splprep(np.vstack((points_x, points_y), dtype=np.float64), s=smoothness, per=1)
-        self.__tck = spline[0]
-        self.__u = spline[1]
+        spline_data = splprep(new_points_array.T.astype(np.float64), s=smoothness, per=1)
+        self.__tck = spline_data[0]
+        self.__u = spline_data[1]
 
         hdu = np.linspace(0, 1, high_definition_points)
         self._high_definition_u = hdu
         hdx, hdy = splev(hdu, self.__tck)
+
         self._high_definition_closure = np.column_stack((hdx, hdy))
-        super().__init__()
 
     @property
     def high_definition_u(self):
@@ -67,7 +56,6 @@ class ClosedSpline(ParametricCurve):
         :rtype: float
         """
         if self._area is None:
-            self._ensure_property("area ad alta definizione")
             self._area = Shape.calc_area(self.high_definition_closure)
         return abs(self._area)
     @property
@@ -80,7 +68,6 @@ class ClosedSpline(ParametricCurve):
         :rtype: float
         """
         if self._area is None:
-            self._ensure_property("area con segno ad alta definizione")
             self._area = Shape.calc_area(self.high_definition_closure)
         return self._area
     @property
@@ -92,8 +79,7 @@ class ClosedSpline(ParametricCurve):
         :rtype: float
         """
         if self._length is None:
-            self._ensure_property("lunghezza")
-            self._length = Shape.calc_length(self.closure)
+            self._length = Shape.calc_length(self.high_definition_closure)
         return self._length
     @property
     def barycenter_hd(self) -> nptyping.NDArray[np.float64]:
@@ -102,7 +88,6 @@ class ClosedSpline(ParametricCurve):
         :rtype: nptyping.NDArray[np.float64]
         """
         if self._barycenter is None:
-            self._ensure_property("baricentro ad alta definizione")
             self._barycenter = Shape.calc_barycenter(self.high_definition_closure)
         return self._barycenter
     @property
@@ -112,7 +97,6 @@ class ClosedSpline(ParametricCurve):
         :rtype: Tuple[float, float, float, float, float, float]
         """
         if self._bounding_box is None:
-            self._ensure_property("bounding box ad alta definizione")
             self._bounding_box = Shape.calc_bounding_box(self.high_definition_closure)
         return self._bounding_box
 
@@ -126,7 +110,7 @@ class ClosedSpline(ParametricCurve):
         """
         return 0., 1.
     def point_at(self, t: ArrayLike) -> nptyping.NDArray[np.float64]:
-        """
+        r"""
         Valuta le coordinate della spline in corrispondenza del parametro `t`.
 
         :param t: Vettore o singolo valore del parametro ($t \in [0, 1]$).
@@ -134,9 +118,14 @@ class ClosedSpline(ParametricCurve):
         :return: Coordinate `[x, y]` valutate.
         :rtype: numpy.typing.NDArray[np.float64]
         """
-        x, y = splev(t, self.__tck)
+        x, y = splev(t if len(t) > 1 else [t], self.__tck)
         return np.column_stack((x, y))
 
+    def discretize(self, custom_step: Optional[float] = None):
+        if self.closure_step is None:
+            self.closure_step = self.closure_step_max / 10
+
+        super().discretize()
     def _discretization(self):
         """
         Popola la `_closure` generando punti equidistanti lungo la curva (arc-length).
@@ -154,7 +143,7 @@ class ClosedSpline(ParametricCurve):
         cumulative_distance = np.insert(np.cumsum(segment_distances), 0, 0)
 
         u_from_dist = interp1d(cumulative_distance, self._high_definition_u)
-        num_punti_desiderati = 80
+        num_punti_desiderati = np.ceil(self.length / self.closure_step).astype(int)
         distanza_totale = cumulative_distance[-1]
         distanze_target = np.linspace(0, distanza_totale, num_punti_desiderati)
 
@@ -163,18 +152,18 @@ class ClosedSpline(ParametricCurve):
 
         self._closure = np.column_stack((x_equi, y_equi))
 
-    def calc_min_closure_step(self, points: ArrayLike) -> float:
+    def calc_min_closure_step(self, **kwargs) -> float:
         """
         Calcola dinamicamente il passo minimo ammissibile.
         """
         const_order = 4
         order = int(len(str(self.length).split(".")[0]) - const_order)
         return 10 ** order
-    def calc_max_closure_step(self, points: ArrayLike) -> float:
+    def calc_max_closure_step(self, **kwargs) -> float:
         """
         Calcola il passo massimo limitandolo a un terzo del perimetro totale.
         """
-        return self.length / 3
+        return self.length / 3 - Eps.eps08
 
     @Shape.closure_step.setter
     def closure_step(self, closure_step: float) -> None:
@@ -190,7 +179,7 @@ class ClosedSpline(ParametricCurve):
             raise TypeError("Tipo di dato non valido")
 
         if self.is_valid_step(closure_step):
-            if closure_step > self.closure_step:
+            if self.closure_step is not None and closure_step > self.closure_step:
                 warnings.warn(f"attenzione il passo impostato è maggiore del precedete con conseguente perdita di informazione")
 
             self._closure_step = closure_step
@@ -207,8 +196,8 @@ class ClosedSpline(ParametricCurve):
             raise TypeError(f"Custom step non valido: previsto un numero, ricevuto {type(custom_step).__name__}")
 
         custom_step = float(custom_step)
-        min_limit = self.closure_step_min - Eps().eps08
-        max_limit = self.closure_step_max + Eps().eps08
+        min_limit = self.closure_step_min - Eps.eps08
+        max_limit = self.closure_step_max + Eps.eps08
 
         if custom_step < min_limit or custom_step > max_limit:
             warnings.warn(f"Il passo {custom_step} non rientra nei limiti della forma ({self.closure_step_min}, {self.closure_step_max})")
@@ -277,6 +266,8 @@ class ClosedSpline(ParametricCurve):
                 f"Attenzione! scalata completata con successo sulla closure ad alta definizione tuttavia il parametro resta none")
 
         self.reset_cache()
+        self._closure_step_max = self.calc_max_closure_step()
+        self._closure_step_min = self.calc_min_closure_step()
 
     def draw(self, ax: plt.Axes = None, show: bool = False, **kwargs):
         """
@@ -298,14 +289,14 @@ class ClosedSpline(ParametricCurve):
             return ax
 
         if ax is None:
-            ax = Shape._get_styled_axis()
+            ax = Shape.style_graph()
 
         x, y = self.closure[:, 0].copy(), self.closure[:, 1].copy()
         high_definition_x, high_definition_y = self.high_definition_closure[:, 0].copy(), self.high_definition_closure[
             :, 1].copy()
 
         ax.plot(high_definition_x, high_definition_y, '--', color='grey')
-        ax.plot(x, y, **kwargs)
+        ax.plot(x, y, 'o-', **kwargs)
 
         if show:
             plt.show()

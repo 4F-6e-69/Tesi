@@ -3,6 +3,7 @@ from src.obj.shape.shape import Shape
 
 from matplotlib import pyplot as plt
 from numpy import typing as nptyping
+import numpy as np
 from src.utils import ArrayLike
 
 class ParametricCurve(Shape, ABC):
