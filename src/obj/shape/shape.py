@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+import numpy as np
 from matplotlib import pyplot as plt
 from numpy import typing as nptyping
 from typing import Tuple, List, Literal, Optional
@@ -496,7 +497,7 @@ class Shape(ABC):
 
         self._closure = Shape.translate_points(self.closure, offset)
         self.reset(["bounding_box", "area", "barycenter"])
-    def rotate(self, angle: float = 0, is_radiant: bool = True):
+    def rotate(self, angle: float = 0, is_radiant: bool = True, _skip: bool = False, _ref: nptyping.NDArray[np.float64] = None):
         """
         Ruota la geometria attorno al suo punto di origine.
 
@@ -507,24 +508,19 @@ class Shape(ABC):
         :type angle: float
         :param is_radiant: Se **True**, l'angolo è interpretato in radianti. Se **False**, in gradi.
         :type is_radiant: bool
+        :param _skip: spunta di validazione del riferimento
+        :type _skip: bool
+        :param _ref: il valore di riferimento della forma
+        :type _ref: ArrayLike
         :raises ValueError: Se il contorno della forma non è ancora stato definito.
         """
         if not self._is_valid_closure():
             raise ValueError("Impossibile rotate: contorno non definito")
 
-        try:
-            result = validate_2d_coordinates(self.origin)
-            if result is not None:
-                self.origin = result
-
-            ref = self.origin
-        except TypeError :
-            warnings.warn("Origine non definita. Verrà utilizzato (0,0) come riferimento.")
-            ref = np.zeros(2)
-
+        ref = self._check_origin(_skip, _ref)
         self._closure = Shape.rotate_points(self.closure, ref, angle, is_radiant)
         self.reset(["bounding_box", "area", "barycenter"])
-    def scale(self, factor: Tuple[float, float] | ArrayLike | float = 1):
+    def scale(self, factor: Tuple[float, float] | ArrayLike | float = 1, _skip: bool = False, _ref: nptyping.NDArray[np.float64] = None):
         """
         Applica una scalatura (uniforme o non uniforme) alla geometria.
 
@@ -534,23 +530,33 @@ class Shape(ABC):
 
         :param factor: Fattore di scala. Può essere uno scalare (scalatura uniforme) o un array/tupla di due elementi `(sx, sy)` (scalatura non uniforme).
         :type factor: Tuple[float, float] | ArrayLike | float
+        :param _skip: spunta di validazione del riferimento
+        :type _skip: bool
+        :param _ref: il valore di riferimento della forma
+        :type _ref: ArrayLike
         :raises ValueError: Se il contorno della forma non è ancora stato definito.
         """
         if not self._is_valid_closure():
             raise ValueError("Impossibile scalare: contorno non definito")
 
-        try:
-            result = validate_2d_coordinates(self.origin)
-            if result is not None:
-                self.origin = result
-
-            ref = self.origin
-        except TypeError:
-            warnings.warn("Origine non definita. Verrà utilizzato (0,0) come riferimento.")
-            ref = np.zeros(2)
-
+        ref = self._check_origin(_skip, _ref)
         self._closure = Shape.scale_points(self.closure, ref, factor)
         self.reset_cache()
+    def _check_origin(self, _skip: bool = False, _ref: nptyping.NDArray[np.float64] = None):
+        if not _skip:
+            try:
+                result = validate_2d_coordinates(self.origin)
+                if result is not None:
+                    self.origin = result
+
+                return self.origin
+            except TypeError:
+                warnings.warn("Origine non definita. Verrà utilizzato (0,0) come riferimento.")
+                return np.zeros(2)
+        else:
+            if _ref is None:
+                raise ValueError("Impossibile scalare: riferimento non definito")
+            return _ref
 
     @staticmethod
     def translate_points(points: ArrayLike, offset: Tuple[float, float] | ArrayLike = (0, 0)) -> nptyping.NDArray[np.float64]:
