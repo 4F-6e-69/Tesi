@@ -9,8 +9,25 @@ from src.utils import *
 from matplotlib import pyplot as plt
 
 class ClosedSpline(ParametricCurve):
+    """
+    Rappresenta una curva B-Spline chiusa e periodica.
 
+    Implementazione concreta di `ParametricCurve`. Genera un contorno continuo e smussato a partire da un set di punti di controllo.
+    Dispone di un sistema a doppio livello di dettaglio: una curva ad alta definizione (HD) per calcoli geometrici precisi, e un contorno discretizzato (closure) campionato a distanze equidistanti per il rendering o altre operazioni discrete.
+    """
     def __init__(self, points, smoothness: float = 0.25, high_definition_points: int = 10000):
+        """
+        Inizializza la spline chiusa calcolando i punti di controllo e la versione HD.
+
+        Utilizza `splprep` con parametro `per=1` per garantire che la curva sia perfettamente chiusa e continua ai bordi (C2 continua).
+
+        :param points: L'array dei punti di controllo (nodi) iniziali.
+        :type points: ArrayLike
+        :param smoothness: Fattore di smussamento `s`.
+        :type smoothness: float
+        :param high_definition_points: Numero di campioni per la curva ad alta risoluzione (default 10.000).
+        :type high_definition_points: int
+        """
         new_points_array = validate_array_of_2d_coordinates(points)
         points_x = new_points_array[:, 0]
         points_y = new_points_array[:, 1]
@@ -27,37 +44,73 @@ class ClosedSpline(ParametricCurve):
 
     @property
     def high_definition_u(self):
+        """
+        :return: Array 1D dei parametri `t` (da 0 a 1) usati per la curva ad alta definizione.
+        :rtype: numpy.typing.NDArray[np.float64]
+        """
         return self._high_definition_u
     @property
     def high_definition_closure(self):
+        """
+        :return: Array 2D delle coordinate campionate ad altissima risoluzione.
+        :rtype: numpy.typing.NDArray[np.float64]
+        """
         return self._high_definition_closure
 
     @property
     def area_hd(self) -> float:
+        """
+        Calcola il valore assoluto dell'area della spline ad alta risoluzione.
+        Il risultato viene salvato in cache tramite **lazy evaluation**.
+
+        :return: Area strettamente positiva della spline.
+        :rtype: float
+        """
         if self._area is None:
             self._ensure_property("area ad alta definizione")
             self._area = Shape.calc_area(self.high_definition_closure)
         return abs(self._area)
     @property
     def sign_area_hd(self) -> float:
+        """
+        Calcola l'area algebrica (con segno) della spline ad alta risoluzione.
+        Sfrutta la **cache** per ottimizzare le chiamate successive.
+
+        :return: Area della curva (il segno dipende dall'orientamento dei punti).
+        :rtype: float
+        """
         if self._area is None:
             self._ensure_property("area con segno ad alta definizione")
             self._area = Shape.calc_area(self.high_definition_closure)
         return self._area
     @property
     def length(self) -> float:
+        """
+        Calcola il perimetro del poligono discretizzato (closure standard).
+
+        :return: La lunghezza totale calcolata sui punti del contorno discretizzato.
+        :rtype: float
+        """
         if self._length is None:
             self._ensure_property("lunghezza")
             self._length = Shape.calc_length(self.closure)
         return self._length
     @property
     def barycenter_hd(self) -> nptyping.NDArray[np.float64]:
+        """
+        :return: Array 2D `[x, y]` del baricentro calcolato sui punti ad alta definizione, salvato in **cache**.
+        :rtype: nptyping.NDArray[np.float64]
+        """
         if self._barycenter is None:
             self._ensure_property("baricentro ad alta definizione")
             self._barycenter = Shape.calc_barycenter(self.high_definition_closure)
         return self._barycenter
     @property
     def bounding_box_hd(self) -> Tuple[float, float, float, float, float, float]:
+        """
+        :return: Tupla con i limiti spaziali della curva ad alta definizione. Salvata in **cache**.
+        :rtype: Tuple[float, float, float, float, float, float]
+        """
         if self._bounding_box is None:
             self._ensure_property("bounding box ad alta definizione")
             self._bounding_box = Shape.calc_bounding_box(self.high_definition_closure)
@@ -65,12 +118,33 @@ class ClosedSpline(ParametricCurve):
 
     @property
     def t_range(self) -> tuple[float, float]:
+        """
+        Dominio del parametro della spline.
+
+        :return: Limiti normalizzati `(0.0, 1.0)`.
+        :rtype: tuple[float, float]
+        """
         return 0., 1.
     def point_at(self, t: ArrayLike) -> nptyping.NDArray[np.float64]:
+        """
+        Valuta le coordinate della spline in corrispondenza del parametro `t`.
+
+        :param t: Vettore o singolo valore del parametro ($t \in [0, 1]$).
+        :type t: ArrayLike
+        :return: Coordinate `[x, y]` valutate.
+        :rtype: numpy.typing.NDArray[np.float64]
+        """
         x, y = splev(t, self.__tck)
         return np.column_stack((x, y))
 
     def _discretization(self):
+        """
+        Popola la `_closure` generando punti equidistanti lungo la curva (arc-length).
+
+        Utilizza l'interpolazione (`interp1d`) della distanza cumulativa per mappare
+        una distribuzione lineare dello spazio sulla parametrizzazione non lineare `u`
+        della B-Spline.
+        """
         x_fine = self.high_definition_closure[:, 0]
         y_fine = self.high_definition_closure[:, 1]
 
@@ -90,14 +164,28 @@ class ClosedSpline(ParametricCurve):
         self._closure = np.column_stack((x_equi, y_equi))
 
     def calc_min_closure_step(self, points: ArrayLike) -> float:
+        """
+        Calcola dinamicamente il passo minimo ammissibile.
+        """
         const_order = 4
         order = int(len(str(self.length).split(".")[0]) - const_order)
         return 10 ** order
     def calc_max_closure_step(self, points: ArrayLike) -> float:
+        """
+        Calcola il passo massimo limitandolo a un terzo del perimetro totale.
+        """
         return self.length / 3
 
     @Shape.closure_step.setter
     def closure_step(self, closure_step: float) -> None:
+        """
+        Imposta un nuovo passo per la discretizzazione e resetta il contorno.
+
+        :param closure_step: Nuovo valore per il passo.
+        :type closure_step: float
+        :raises TypeError: Se il tipo inserito non è compatibile.
+        :raises ValueError: Se il passo non supera la validazione geometrica.
+        """
         if not isinstance(closure_step, float):
             raise TypeError("Tipo di dato non valido")
 
@@ -112,6 +200,9 @@ class ClosedSpline(ParametricCurve):
         raise ValueError("Valore non valido")
 
     def is_valid_step(self, custom_step: float) -> bool:
+        """
+        Verifica che il passo desiderato rientri nei limiti minimo e massimo.
+        """
         if not isinstance(custom_step, (float, int, np.number)):
             raise TypeError(f"Custom step non valido: previsto un numero, ricevuto {type(custom_step).__name__}")
 
@@ -126,6 +217,11 @@ class ClosedSpline(ParametricCurve):
         return True
 
     def translate(self, offset: Tuple[float, float] | ArrayLike = (0, 0)):
+        """
+        Trasla l'intera spline modificandone i punti di controllo originari.
+
+        Garantisce la massima fedeltà geometrica traslando la definizione analitica della curva e la sua versione ad alta definizione. Invalida la cache al termine.
+        """
         t, c, k = self.__tck
         control_points_2d = np.column_stack((c[0], c[1]))
         new_control_points = Shape.translate_points(control_points_2d, offset)
@@ -141,6 +237,9 @@ class ClosedSpline(ParametricCurve):
 
         self.reset_cache()
     def rotate(self, angle: float = 0, is_radiant: bool = True, **kwargs):
+        """
+        Ruota l'intera spline attorno all'origine trasformando i punti di controllo.
+        """
         ref = self._check_origin(False, np.zeros(2).flatten())
 
         t, c, k = self.__tck
@@ -158,6 +257,9 @@ class ClosedSpline(ParametricCurve):
 
         self.reset_cache()
     def scale(self, factor: Tuple[float, float] | ArrayLike | float = 1, **kwargs):
+        """
+        Scala l'intera spline trasformando analiticamente i punti di controllo.
+        """
         ref = self._check_origin(False, np.zeros(2).flatten())
 
         t, c, k = self.__tck
@@ -177,6 +279,20 @@ class ClosedSpline(ParametricCurve):
         self.reset_cache()
 
     def draw(self, ax: plt.Axes = None, show: bool = False, **kwargs):
+        """
+        Renderizza la spline su un piano cartesiano.
+
+        Disegna due layer:
+        1. La curva matematica ad alta definizione (tratteggiata in grigio).
+        2. Il contorno discretizzato sovrapposto (seguendo lo stile in `kwargs`).
+
+        :param ax: Asse su cui disegnare. Se **None**, ne viene creato uno.
+        :type ax: plt.Axes, opzionale
+        :param show: Se **True**, invoca `plt.show()`.
+        :type show: bool
+        :return: L'oggetto assi utilizzato.
+        :rtype: plt.Axes | None
+        """
         if self.closure is None or len(self.closure) < 3:
             warnings.warn("Nessun contorno disponibile per il disegno.")  # Al posto di print()
             return ax
