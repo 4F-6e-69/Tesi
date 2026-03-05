@@ -36,6 +36,8 @@ class WorkingSpace:
 
         self._R = np.stack([x, y, z])
         self._interface = None
+        self.__interface_element = {}
+        self.__interface_updates = {}
 
     @classmethod
     def new_space_from_three_points(cls, origin: ArrayLike, x_hint: ArrayLike, plane_hint: ArrayLike) -> 'WorkingSpace':
@@ -411,6 +413,28 @@ class WorkingSpace:
 
         return True
 
+    def add_element(self, element_name: str, element_type: str, element_color: str, **kwargs):
+        if element_type == "point":
+            centro = kwargs["center"]
+            self.__interface_updates[element_name] = {"type": element_type, "center": centro, "color": element_color}
+            return
+        if element_type == "arrow":
+            start = kwargs["start"]
+            end = kwargs["end"]
+            self.__interface_updates[element_name] = {"type": element_type, "start": start, "end": end, "color": element_color}
+            return
+    def add_points(self, name: str, points: ArrayLike, color: str):
+        for p in points:
+            current_name = f"{name}-{p}"
+            self.add_element(current_name, "point", color, center=p)
+    def add_directions(self,name: str, color: str, start: ArrayLike, end: ArrayLike):
+        if len(start) is not len(end):
+            raise AttributeError()
+
+        for index in range(len(start)):
+            current_name = f"{name}-{start[index]}"
+            self.add_element(current_name, "arrow", color, start=start[index], end=end[index])
+
     def create_cad_interface(self, save: Optional[bool] = False):
         pv.set_plot_theme("document")
         plotter = pv.Plotter(title="CAD Sanding Robot - Ultra Lean")
@@ -442,6 +466,14 @@ class WorkingSpace:
             'shaft_resolution': 20,  # Più liscio
             'tip_resolution': 20  # Più liscio
         }
+        direction_params = {
+            'scale': 5,
+            'tip_radius': 0.08,  # Punta più sottile (default è 0.25)
+            'tip_length': 0.25,  # Punta più corta e proporzionata
+            'shaft_radius': 0.025,  # Asta molto sottile (stile linea)
+            'shaft_resolution': 20,  # Più liscio
+            'tip_resolution': 20  # Più liscio
+        }
 
         n = pv.Arrow(start=self.origin, direction=self.normal, **fine_params)
         plotter.add_mesh(n, color="blue", name="vettore_normale", smooth_shading=True)
@@ -451,6 +483,15 @@ class WorkingSpace:
 
         y = pv.Arrow(start=self.origin, direction=self.y_axis, **fine_params)
         plotter.add_mesh(y, color="green", name="vettore_y", smooth_shading=True)
+
+        def add_element_to_scene(element, name):
+            if element["type"] == "point":
+                new_point = pv.Sphere(center=element["center"])
+                plotter.add_mesh(new_point, color=element["color"], show_edges=True, edge_color=f"dark{element["color"]}", name=name)
+
+            elif element["type"] == "arrow":
+                new_arrow = pv.Arrow(start=element["start"], direction=element["end"], **direction_params)
+                plotter.add_mesh(new_arrow, color=element["color"], name=name, smooth_shading=True)
 
         def update_axis_labels(step):
             ticks = np.arange(-500, 501, step)
@@ -534,7 +575,15 @@ class WorkingSpace:
                     return
             elif "p" in keys_down:
                 self.exchange_plane()
+            elif "u" in keys_down:
+                if len(self.__interface_updates) > 0:
+                    for up in self.__interface_updates:
+                        add_element_to_scene(self.__interface_updates[up], up)
 
+                    self.__interface_element = self.__interface_element | self.__interface_updates
+                    self.__interface_updates = {}
+                else:
+                    return
         def on_release(obj, event):
             key = obj.GetKeySym().lower()
             keys_down.discard(key)
