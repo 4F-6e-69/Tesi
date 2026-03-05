@@ -1,7 +1,7 @@
 import warnings
 from typing import Union, Literal
 import numpy as np
-from numpy.ma.core import absolute
+import csv
 
 from src.obj.plane.working_plane import WorkingSpace
 from src.obj.robot import robot
@@ -141,3 +141,34 @@ class Pocket(object):
     # TODO
     def _calc_fill(self) -> np.typing.NDArray[np.float64]:
         pass
+
+    def writing(self, filename):
+        x, y, z = self._contour[:, 0], self._contour[:, 1], self._contour[:, 2]
+        i, j, k = self._contour[:, 3], self._contour[:, 4], self._contour[:, 5]
+
+        A = np.zeros((len(x), 3))
+        for o in range(len(x)):
+            T = np.array([[1, 0, 0, -x[o]],
+                          [0, 1, 0, -y[o]],
+                          [0, 0, 1, -z[o]],
+                          [0, 0, 0, 1]])
+
+            vet = np.array([[i[o]], [j[o]], [k[o]], [1]])
+            temp = np.dot(T, vet)
+            A[o, :3] = temp[:3].flatten()
+
+        A = np.column_stack((x, y, z, -A))
+        A = A.T
+        A = A.tolist()
+
+        with open(filename, mode='w', newline='') as file_csv:
+            writer = csv.writer(file_csv)
+            for riga in range(len(x)):
+                writer.writerow([
+                    "{:.3f}".format(A[0][riga]),
+                    " {:.3f}".format(A[1][riga]),
+                    " {:.3f}".format(A[2][riga]),
+                    " {:.3f}".format(A[3][riga]),
+                    " {:.3f}".format(A[4][riga]),
+                    " {:.3f}".format(A[5][riga])
+                ])
