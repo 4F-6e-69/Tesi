@@ -7,13 +7,27 @@ from shapely.geometry import Polygon, Point
 from shapely import affinity
 
 from src.utils import ArrayLike, Resets, Ref
+from src.utils import validate_array_of_2d_coordinates, validate_2d_coordinates
 
 class Shape:
-    def __init__(self, points: ArrayLike, origin: ArrayLike = None):
-        #TODO controllo di sicurezza sui dati forniti
+    def __init__(self, points: ArrayLike, origin: ArrayLike = None, **kwargs) -> None:
+        __skip = kwargs.get("__skip", False)
+        __calc_closure = kwargs.get("__closure", None)
+
+        # validazione
+        if not __skip:
+            validated_points = validate_array_of_2d_coordinates(points)
+            points = points if validated_points is None else validated_points
+
+            if origin is not None:
+                validated_origin = validate_2d_coordinates(origin)
+                origin = origin if validated_origin is None else validated_origin
+
+        # Creazione della forma con Polygon per calcoli geometri e planari
         shape: Polygon = Polygon(points)
         self._shapely_shape = shape
 
+        # Inizializzazione del riferimento
         centroid_pt = shape.centroid
         center_coord = np.array([centroid_pt.x, centroid_pt.y], dtype=np.float64)
         if origin is None:
@@ -22,6 +36,7 @@ class Shape:
             self._origin = np.asarray(origin, dtype=np.float64)
         self._origin_is_center: bool = np.allclose(self._origin, center_coord)
 
+        # Inizializzazione dell cache a None
         self._area: float | None = None
         self._length: float | None = None
         self._bounds: tuple[float, float, float, float] | None = None
@@ -38,8 +53,18 @@ class Shape:
     def origin(self) -> nptyping.NDArray[np.float64] | None:
         return self._origin
     @origin.setter
-    def origin(self, origin: ArrayLike) -> None:
-        #TODO implementazione del controllo di sicurezza sui dati forniti
+    def origin(self, origin: ArrayLike, **kwargs) -> None:
+        __skip = kwargs.get("__skip", False)
+
+        if not __skip:
+            try:
+                validated_origin = validate_2d_coordinates(origin)
+                origin = origin if validated_origin is None else validated_origin
+            except (TypeError, ValueError):
+                warnings.warn(
+                    f"Origine fornita: {origin} non valida - Il precedente riferimento non è stato modificato")
+                return
+
         self._origin = np.asarray(origin, dtype=np.float64)
         self._origin_is_center = np.allclose(self.barycenter, self._origin)
     @property
@@ -103,7 +128,7 @@ class Shape:
         ref_origin = self.origin if ref == "origin" else self.barycenter
         self._shapely_shape = affinity.rotate(self.shapely, angle=angle, origin=(ref_origin[0], ref_origin[1]))
 
-        if ref == "barycenter" and self._origin is not None:
+        if ref == "barycenter":
             orig_point = affinity.rotate(Point(self._origin), angle=angle, origin=(ref_origin[0], ref_origin[1]))
             self._origin = np.array([orig_point.x, orig_point.y], dtype=np.float64)
 

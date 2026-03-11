@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+import warnings
+
 import numpy as np
 import numpy.typing as nptyping
 from typing import List, Literal, Union
@@ -8,6 +10,42 @@ CoordDType = Union[int, float, np.number]
 ArrayLike = Union[nptyping.ArrayLike, nptyping.NDArray]
 Resets = Union[List[Literal["all", "length", "area", "bounds", "barycenter"]], None]
 Ref = Literal["origin", "barycenter"]
+
+# Validator
+def __validate_numeric_dtype(array: nptyping.NDArray) -> nptyping.NDArray[np.float64]:
+    if not np.issubdtype(array.dtype, np.number):
+        raise TypeError("Tipo di coordinata non valida: deve essere un numero")
+
+    if not np.issubdtype(array.dtype, np.floating):
+        warnings.warn(f"Casting implicito da {array.dtype} a np.float64")
+        return array.astype(np.float64)
+
+    return array
+
+def validate_2d_coordinates(coordinates):
+    try:
+        new_coord = np.asarray(coordinates).ravel()
+    except Exception as e:
+        raise TypeError("Le coordinate devono essere di tipo array-numpy o array-like-numpy") from e
+
+    if new_coord.shape != (2, ):
+        raise ValueError("Le coordinate devono avere dimensione (2, )")
+
+    result = __validate_numeric_dtype(new_coord)
+    update = new_coord.base is getattr(coordinates, 'base', None)
+    return result if update or result.base is getattr(new_coord, 'base', None) else None
+def validate_array_of_2d_coordinates(coordinates):
+    try:
+        new_coord = np.asarray(coordinates)
+    except Exception as e:
+        raise TypeError("Le coordinate devono essere di tipo array-numpy o array-like-numpy") from e
+
+    if new_coord.ndim != 2 or new_coord.shape[1] != 2:
+        raise ValueError("Le coordinate devono avere dimensione (n, 2)")
+
+    result = __validate_numeric_dtype(new_coord)
+    update = new_coord.base is getattr(coordinates, 'base', None)
+    return result if update or result.base is getattr(new_coord, 'base', None) else None
 
 @dataclass(frozen=True)
 class EpsConfig:
