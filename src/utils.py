@@ -9,7 +9,7 @@ from typing import List, Literal, Union
 
 CoordDType = Union[int, float, np.number]
 ArrayLike = Union[nptyping.ArrayLike, nptyping.NDArray]
-Resets = Union[List[Literal["all", "length", "area", "bounds", "barycenter"]], None]
+Resets = Union[List[Literal["all", "length", "area", "bounds", "barycenter", "step", "closure"]], Literal["all", "length", "area", "bounds", "barycenter", "step", "closure"], None]
 Ref = Literal["origin", "barycenter"]
 
 # Validator

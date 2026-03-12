@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 from shapely.geometry import Polygon
 
-from src.models.shape.shape import Shape
+from src.models.shape.generic_shape import Shape
 
 class TestShape(unittest.TestCase):
 
