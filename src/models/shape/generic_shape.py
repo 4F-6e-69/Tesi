@@ -168,6 +168,31 @@ class Shape:
         self._sure_steps = mult_divisors(dists) / 10 ** Shape.shape_order
         return self._sure_steps[-1]
 
+    def discretize(self, **kwargs) -> nptyping.NDArray[np.float64]:
+        __custom_step = kwargs.get("__custom_step", None)
+
+        if __custom_step is not None:
+            self.discretization_step = __custom_step
+
+        self._discretization()
+        self.reset_cache()
+
+        return self._closure
+    def _discretization(self):
+        perimeter = self.shapely.exterior
+        total_length = self.length
+
+        if self.discretization_step is None:
+            _ = self.max_discretization_step
+            mid_index = len(self.sure_steps) // 2
+            self.discretization_step = float(self.sure_steps[mid_index])
+
+        distances = np.arange(0, total_length, self.discretization_step)
+        points = [perimeter.interpolate(d) for d in distances]
+        self._closure = np.array([[p.x, p.y] for p in points], dtype=np.float64)
+
+        return self._closure
+
     def reset_cache(self):
         self._area = None
         self._length = None
@@ -185,6 +210,9 @@ class Shape:
 
             elif target == "length":
                 self._length = None
+                self._min_discretization_step = None
+                self._max_discretization_step = None
+                self._discretization_step = None
             elif target == "area":
                 self._area = None
             elif target == "bounds":
@@ -192,13 +220,18 @@ class Shape:
             elif target == "barycenter":
                 self._barycenter = None
 
+            elif target == "closure":
+                self._closure = None
+            elif target == "step":
+                self._discretization_step = None
+
     def translate(self, x_off: float = 0.0, y_off: float = 0.0) -> 'Shape':
         self._shapely_shape = affinity.translate(self.shapely, xoff=x_off, yoff=y_off)
 
         if self._origin is not None:
             self._origin = self._origin + np.array([x_off, y_off])
 
-        self.reset(["bounds", "barycenter"])
+        self.reset(["bounds", "barycenter", "closure"])
         return self
     def rotate(self, angle: float = 0.0, ref: Ref = "origin") -> 'Shape':
         ref_origin = self.origin if ref == "origin" else self.barycenter
@@ -208,7 +241,7 @@ class Shape:
             orig_point = affinity.rotate(Point(self._origin), angle=angle, origin=(ref_origin[0], ref_origin[1]))
             self._origin = np.array([orig_point.x, orig_point.y], dtype=np.float64)
 
-        self.reset(["bounds", "barycenter"])
+        self.reset(["bounds", "barycenter", "closure"])
         return self
     def scale(self, x_fact: float = 1.0, y_fact: float = 1.0, ref: Ref = "origin") -> 'Shape':
         ref_origin = self.origin if ref == "origin" else self.barycenter
@@ -230,6 +263,7 @@ class Shape:
             self._origin = np.array([orig_point.x, orig_point.y], dtype=np.float64)
 
         self.reset_cache()
+        self.reset(["length", "closure"])
         return self
 
     def __str__(self):
