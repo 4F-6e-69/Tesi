@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 import warnings
 
+import math
 import numpy as np
 import numpy.typing as nptyping
 from typing import List, Literal, Union
@@ -46,6 +47,36 @@ def validate_array_of_2d_coordinates(coordinates):
     result = __validate_numeric_dtype(new_coord)
     update = new_coord.base is getattr(coordinates, 'base', None)
     return result if update or result.base is getattr(new_coord, 'base', None) else None
+
+def divisors(n: float) -> nptyping.NDArray[np.float64]:
+
+    if np.isclose(n, 0, atol=Eps.eps12):
+        return np.array([])
+    if np.isclose(n, 1, atol=Eps.eps12):
+        return np.array([1])
+
+    i = np.arange(1, int(n ** 0.5) + 1)
+    divs = i[n % i == 0]
+    all_divs = np.unique(np.concatenate((divs, n // divs)))
+    return all_divs
+def mult_divisors(ns: nptyping.NDArray[np.float64]) -> nptyping.NDArray[np.float64]:
+    if not ns:
+        return np.array([])
+
+    overall_gcd = np.gcd.reduce(math.gcd(), ns)
+    if overall_gcd == 0:
+        return np.array([])
+
+    overall_gcd = abs(overall_gcd)
+    divs = set()
+    limit = math.isqrt(overall_gcd)
+
+    for i in range(1, limit + 1):
+        if overall_gcd % i == 0:
+            divs.add(i)
+            divs.add(overall_gcd // i)
+
+    return np.asarray(sorted(list(divs)))
 
 @dataclass(frozen=True)
 class EpsConfig:

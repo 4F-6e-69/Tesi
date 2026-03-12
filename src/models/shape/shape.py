@@ -6,13 +6,17 @@ from numpy import typing as nptyping
 from shapely.geometry import Polygon, Point
 from shapely import affinity
 
+from src.utils import Eps
 from src.utils import ArrayLike, Resets, Ref
 from src.utils import validate_array_of_2d_coordinates, validate_2d_coordinates
+from src.utils import mult_divisors
 
 class Shape:
+    shape_order: int = 4
+
     def __init__(self, points: ArrayLike, origin: ArrayLike = None, **kwargs) -> None:
         __skip = kwargs.get("__skip", False)
-        __calc_closure = kwargs.get("__closure", None)
+        __order = kwargs.get("__order", False)
 
         # validazione
         if not __skip:
@@ -22,6 +26,11 @@ class Shape:
             if origin is not None:
                 validated_origin = validate_2d_coordinates(origin)
                 origin = origin if validated_origin is None else validated_origin
+
+        # Ordinamento dei punti per evitare concavità / auto-intersezioni strane
+        if __order:
+            # TODO implementazione di un algoritmo per ordinare i punti secondo un certo rodine CW o CCW
+            pass
 
         # Creazione della forma con Polygon per calcoli geometri e planari
         shape: Polygon = Polygon(points)
@@ -41,6 +50,13 @@ class Shape:
         self._length: float | None = None
         self._bounds: tuple[float, float, float, float] | None = None
         self._barycenter: nptyping.NDArray[np.float64] | None = None
+
+        # Inizializzazione della cache relativo al contorno della forma
+        self._closure: nptyping.NDArray[np.float64] | None = None
+        self._discretization_step: float | None = None
+        self._sure_steps: nptyping.NDArray[np.float64] | None = None
+        self._max_discretization_step: float | None = None
+        self._min_discretization_step: float | None = None
 
     @property
     def shapely(self) -> Polygon | None:
@@ -72,6 +88,9 @@ class Shape:
         return self._origin_is_center
 
     @property
+    def ccw(self):
+        return self.shapely.exterior.is_ccw
+    @property
     def area(self) -> float | None:
         if self._area is None:
             self._area = self.shapely.area
@@ -91,6 +110,63 @@ class Shape:
         if self._barycenter is None:
             self._barycenter = np.asarray([self.shapely.centroid.x, self.shapely.centroid.y], dtype=np.float64)
         return self._barycenter
+
+    @property
+    def min_discretization_step(self) -> float:
+        if self._min_discretization_step is None:
+            self._min_discretization_step = self._calc_min_discretization_step()
+        return self._min_discretization_step
+    @property
+    def max_discretization_step(self) -> float:
+        if self._max_discretization_step is None:
+            self._max_discretization_step = self._calc_max_discretization_step()
+        return self._max_discretization_step
+    @property
+    def sure_steps(self) -> nptyping.NDArray[np.float64] | None:
+        if self._sure_steps is None:
+            warnings.warn("I passi di discretizzazione sicura della figura non sono ancora stati definiti")
+        return self._sure_steps
+    @property
+    def discretization_step(self) -> float | None:
+        if self._discretization_step is None:
+            warnings.warn("Passo di discretizzazione della figura non ancora definito")
+        return self._discretization_step
+    @discretization_step.setter
+    def discretization_step(self, step: float, **kwargs) -> None:
+        __cast = kwargs.get("__cast", True)
+        __epsilon = kwargs.get("__epsilon", Eps.eps12)
+
+        step = float(abs(step))
+        if step < self.min_discretization_step - __epsilon:
+            warnings.warn(f"Passo di discretizzazione troppo piccolo, minimo accettato: {self.min_discretization_step}")
+            return
+        if step > self.max_discretization_step + __epsilon:
+            warnings.warn(f"Passo di discretizzazione troppo grande, massimo accettato: {self.max_discretization_step}")
+            return
+
+        is_safe = np.any((self.sure_steps >= step - __epsilon) & (self.sure_steps <= step + __epsilon))
+        if not is_safe:
+            if not __cast:
+                warnings.warn("Il passo impostato non è totalmente sicuro, il percorso calcolato potrebbe subire deformazioni")
+            else:
+                diffs = np.abs(self.sure_steps - step)
+                best_index = np.argmin(diffs)
+                step = float(self.sure_steps[best_index])
+
+        self._discretization_step = step
+
+    def _calc_min_discretization_step(self, **kwargs) -> float:
+        __len: float | None = kwargs.get("__len", None)
+
+        order = int(len(str(self.length if __len is None else __len).split(".")[0]) - Shape.shape_order)
+        return 10 ** order
+    def _calc_max_discretization_step(self, **kwargs) -> float:
+        points = self.shapely.exterior.coords
+        points = np.delete(points, -1, axis=0)
+        diffs = points - np.roll(points, 1, axis=0)
+        dists = np.round(np.linalg.norm(diffs, axis=1) * 10 ** Shape.shape_order).astype(int)
+        self._sure_steps = mult_divisors(dists) / 10 ** Shape.shape_order
+        return self._sure_steps[-1]
 
     def reset_cache(self):
         self._area = None
