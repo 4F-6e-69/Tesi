@@ -3,3 +3,6 @@ TODO
 /src_backup/
 /src/lib_test/
 src/models/shape/test
+src/models/plane/test
+src/models/robot/test
+src/models/pocket/test
