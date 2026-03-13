@@ -112,6 +112,12 @@ class Shape:
         return self._barycenter
 
     @property
+    def closed_closure(self):
+        if self._closure is None:
+            self.discretize()
+        return np.vstack((self._closure, self._closure[0]))
+
+    @property
     def min_discretization_step(self) -> float:
         if self._min_discretization_step is None:
             self._min_discretization_step = self._calc_min_discretization_step()

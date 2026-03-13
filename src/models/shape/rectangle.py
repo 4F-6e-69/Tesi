@@ -1,10 +1,13 @@
 import numpy as np
+from numpy import typing as npt
 
 from src.models.shape.generic_shape import Shape
 from src.utils import ArrayLike, Eps, Ref
 from src.utils import validate_2d_coordinates
+from src.models.shape.generic_polygon import GenericPolygon
 
-class Rectangle(Shape):
+
+class Rectangle(GenericPolygon):
     def __init__(self, a: ArrayLike = None, b: ArrayLike = None, c: ArrayLike = None, d: ArrayLike = None, **kwargs):
         __points_array = kwargs.pop('__points_array', None)
 
