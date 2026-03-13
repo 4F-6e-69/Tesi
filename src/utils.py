@@ -4,16 +4,16 @@ import warnings
 
 import math
 import numpy as np
-import numpy.typing as nptyping
+import numpy.typing as npt
 from typing import List, Literal, Union
 
 CoordDType = Union[int, float, np.number]
-ArrayLike = Union[nptyping.ArrayLike, nptyping.NDArray]
+ArrayLike = Union[npt.ArrayLike, npt.NDArray]
 Resets = Union[List[Literal["all", "length", "area", "bounds", "barycenter", "step", "closure"]], Literal["all", "length", "area", "bounds", "barycenter", "step", "closure"], None]
 Ref = Literal["origin", "barycenter"]
 
 # Validator
-def __validate_numeric_dtype(array: nptyping.NDArray) -> nptyping.NDArray[np.float64]:
+def __validate_numeric_dtype(array: npt.NDArray) -> npt.NDArray[np.float64]:
     if not np.issubdtype(array.dtype, np.number):
         raise TypeError("Tipo di coordinata non valida: deve essere un numero")
 
@@ -48,7 +48,7 @@ def validate_array_of_2d_coordinates(coordinates):
     update = new_coord.base is getattr(coordinates, 'base', None)
     return result if update or result.base is getattr(new_coord, 'base', None) else None
 
-def divisors(n: float) -> nptyping.NDArray[np.float64]:
+def divisors(n: float) -> npt.NDArray[np.float64]:
 
     if np.isclose(n, 0, atol=Eps.eps12):
         return np.array([])
@@ -59,7 +59,7 @@ def divisors(n: float) -> nptyping.NDArray[np.float64]:
     divs = i[n % i == 0]
     all_divs = np.unique(np.concatenate((divs, n // divs)))
     return all_divs
-def mult_divisors(ns: nptyping.NDArray[np.float64]) -> nptyping.NDArray[np.float64]:
+def mult_divisors(ns: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     if not ns:
         return np.array([])
 

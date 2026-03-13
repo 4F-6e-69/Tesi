@@ -1,7 +1,7 @@
 import warnings
 
 import numpy as np
-from numpy import typing as nptyping
+from numpy import typing as npt
 
 from shapely.geometry import Polygon, Point
 from shapely import affinity
@@ -49,12 +49,12 @@ class Shape:
         self._area: float | None = None
         self._length: float | None = None
         self._bounds: tuple[float, float, float, float] | None = None
-        self._barycenter: nptyping.NDArray[np.float64] | None = None
+        self._barycenter: npt.NDArray[np.float64] | None = None
 
         # Inizializzazione della cache relativo al contorno della forma
-        self._closure: nptyping.NDArray[np.float64] | None = None
+        self._closure: npt.NDArray[np.float64] | None = None
         self._discretization_step: float | None = None
-        self._sure_steps: nptyping.NDArray[np.float64] | None = None
+        self._sure_steps: npt.NDArray[np.float64] | None = None
         self._max_discretization_step: float | None = None
         self._min_discretization_step: float | None = None
 
@@ -66,7 +66,7 @@ class Shape:
         return self._shapely_shape
 
     @property
-    def origin(self) -> nptyping.NDArray[np.float64] | None:
+    def origin(self) -> npt.NDArray[np.float64] | None:
         return self._origin
     @origin.setter
     def origin(self, origin: ArrayLike, **kwargs) -> None:
@@ -106,7 +106,7 @@ class Shape:
             self._bounds = self.shapely.bounds
         return self._bounds
     @property
-    def barycenter(self) -> nptyping.NDArray[np.float64] | None:
+    def barycenter(self) -> npt.NDArray[np.float64] | None:
         if self._barycenter is None:
             self._barycenter = np.asarray([self.shapely.centroid.x, self.shapely.centroid.y], dtype=np.float64)
         return self._barycenter
@@ -122,7 +122,7 @@ class Shape:
             self._max_discretization_step = self._calc_max_discretization_step()
         return self._max_discretization_step
     @property
-    def sure_steps(self) -> nptyping.NDArray[np.float64] | None:
+    def sure_steps(self) -> npt.NDArray[np.float64] | None:
         if self._sure_steps is None:
             warnings.warn("I passi di discretizzazione sicura della figura non sono ancora stati definiti")
         return self._sure_steps
@@ -168,7 +168,7 @@ class Shape:
         self._sure_steps = mult_divisors(dists) / 10 ** Shape.shape_order
         return self._sure_steps[-1]
 
-    def discretize(self, **kwargs) -> nptyping.NDArray[np.float64]:
+    def discretize(self, **kwargs) -> npt.NDArray[np.float64]:
         __custom_step = kwargs.get("__custom_step", None)
 
         if __custom_step is not None:

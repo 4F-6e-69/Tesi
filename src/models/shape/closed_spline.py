@@ -1,5 +1,5 @@
 import numpy as np
-from numpy import typing as nptyping
+from numpy import typing as npt
 
 from scipy.interpolate import splprep, splev, interp1d
 from src.models.shape.parametric_shape import ParametricShape
@@ -36,13 +36,13 @@ class ClosedSpline(ParametricShape):
         )
 
     @property
-    def high_definition_u(self) -> nptyping.NDArray[np.float64]:
+    def high_definition_u(self) -> npt.NDArray[np.float64]:
         return self._high_definition_u
     @property
-    def high_definition_closure(self) -> nptyping.NDArray[np.float64]:
+    def high_definition_closure(self) -> npt.NDArray[np.float64]:
         return self._high_definition_closure
 
-    def point_at(self, t: ArrayLike) -> nptyping.NDArray[np.float64]:
+    def point_at(self, t: ArrayLike) -> npt.NDArray[np.float64]:
         t_array = np.atleast_1d(t)
         t_array = t_array % 1.0
         x, y = splev(t_array, self.__tck)
