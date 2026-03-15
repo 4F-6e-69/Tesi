@@ -49,11 +49,11 @@ def validate_array_of_2d_coordinates(coordinates):
     return result if update or result.base is getattr(new_coord, 'base', None) else None
 
 def _tolerated_mcd(numbers: npt.NDArray[np.float64], error: float) -> Tuple[float, npt.NDArray[np.float64]]:
-    max_divisors = np.max(numbers)
+    max_divisors = np.min(numbers)
     dividers = np.arange(2, max_divisors + 1).reshape(-1, 1)
 
     remains = numbers % dividers
-    dists = np.minimum(remains, dividers - dividers)
+    dists = np.minimum(remains, dividers - remains)
     errors = np.max(dists, axis=1)
     validation_mask = errors < error
 
@@ -62,9 +62,7 @@ def _tolerated_mcd(numbers: npt.NDArray[np.float64], error: float) -> Tuple[floa
         return 1.0, np.array([0.0, 1.0], dtype=np.float64)
 
     sorted_divisors = np.sort(sure_divisors)
-    mcd = sorted_divisors[-1]
-
-    return float(mcd), sorted_divisors
+    return float(sorted_divisors[-1]), sorted_divisors
 def divisors(n: float) -> npt.NDArray[np.float64]:
 
     if np.isclose(n, 0, atol=Eps.eps12):

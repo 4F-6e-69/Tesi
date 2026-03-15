@@ -9,7 +9,7 @@ from shapely import affinity
 from src.utils import Eps
 from src.utils import ArrayLike, Resets, Ref
 from src.utils import validate_array_of_2d_coordinates, validate_2d_coordinates
-from src.utils import mult_divisors
+from src.utils import _tolerated_mcd, filter_arrays_tolerance, _all_almost_divisors
 
 class Shape:
     shape_order: int = 4
@@ -112,10 +112,13 @@ class Shape:
         return self._barycenter
 
     @property
-    def closed_closure(self):
-        if self._closure is None:
-            self.discretize()
-        return np.vstack((self._closure, self._closure[0]))
+    def closed_control_points(self):
+        x, y = self.shapely.exterior.coords.xy
+        return np.column_stack((x, y))
+    @property
+    def control_points(self):
+        x, y = self.shapely.exterior.coords.xy
+        return np.delete(np.column_stack((x, y)), -1)
 
     @property
     def min_discretization_step(self) -> float:
@@ -145,9 +148,11 @@ class Shape:
         step = float(abs(step))
         if step < self.min_discretization_step - __epsilon:
             warnings.warn(f"Passo di discretizzazione troppo piccolo, minimo accettato: {self.min_discretization_step}")
+            self._discretization_step = self.min_discretization_step
             return
         if step > self.max_discretization_step + __epsilon:
             warnings.warn(f"Passo di discretizzazione troppo grande, massimo accettato: {self.max_discretization_step}")
+            self._discretization_step = self.max_discretization_step
             return
 
         is_safe = np.any((self.sure_steps >= step - __epsilon) & (self.sure_steps <= step + __epsilon))
@@ -163,16 +168,22 @@ class Shape:
 
     def _calc_min_discretization_step(self, **kwargs) -> float:
         __len: float | None = kwargs.get("__len", None)
-
-        order = int(len(str(self.length if __len is None else __len).split(".")[0]) - Shape.shape_order)
+        order = int(np.log10(self.length) - Shape.shape_order)
         return 10 ** order
     def _calc_max_discretization_step(self, **kwargs) -> float:
-        points = self.shapely.exterior.coords
-        points = np.delete(points, -1, axis=0)
+        x, y = self.shapely.exterior.coords.xy
+        points = np.delete(np.column_stack((np.asarray(x, dtype=np.float64), np.asarray(y, dtype=np.float64))), -1, axis=0)
         diffs = points - np.roll(points, 1, axis=0)
-        dists = np.round(np.linalg.norm(diffs, axis=1) * 10 ** Shape.shape_order).astype(int)
-        self._sure_steps = mult_divisors(dists) / 10 ** Shape.shape_order
-        return self._sure_steps[-1]
+        dists = np.round(np.linalg.norm(diffs, axis=1) * (10 ** Shape.shape_order)).astype(int)
+
+        min_distance_order = np.log10(np.min(dists))
+
+        mcd, _ = _tolerated_mcd(dists, 5 * 10 ** min_distance_order)
+        detailed_divisors = _all_almost_divisors(mcd, 50)
+        divisors = filter_arrays_tolerance(detailed_divisors, 2)
+
+        self._sure_steps = divisors / 10 ** Shape.shape_order
+        return mcd / 10 ** Shape.shape_order
 
     def discretize(self, **kwargs) -> npt.NDArray[np.float64]:
         __custom_step = kwargs.get("__custom_step", None)
