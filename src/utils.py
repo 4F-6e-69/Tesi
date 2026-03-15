@@ -5,7 +5,7 @@ import warnings
 import math
 import numpy as np
 import numpy.typing as npt
-from typing import List, Literal, Union
+from typing import List, Literal, Union, Tuple
 
 CoordDType = Union[int, float, np.number]
 ArrayLike = Union[npt.ArrayLike, npt.NDArray]
@@ -48,6 +48,23 @@ def validate_array_of_2d_coordinates(coordinates):
     update = new_coord.base is getattr(coordinates, 'base', None)
     return result if update or result.base is getattr(new_coord, 'base', None) else None
 
+def _tolerated_mcd(numbers: npt.NDArray[np.float64], error: float) -> Tuple[float, npt.NDArray[np.float64]]:
+    max_divisors = np.max(numbers)
+    dividers = np.arange(2, max_divisors + 1).reshape(-1, 1)
+
+    remains = numbers % dividers
+    dists = np.minimum(remains, dividers - dividers)
+    errors = np.max(dists, axis=1)
+    validation_mask = errors < error
+
+    sure_divisors = dividers[validation_mask].flatten()
+    if sure_divisors.size == 0:
+        return 1.0, np.array([0.0, 1.0], dtype=np.float64)
+
+    sorted_divisors = np.sort(sure_divisors)
+    mcd = sorted_divisors[-1]
+
+    return float(mcd), sorted_divisors
 def divisors(n: float) -> npt.NDArray[np.float64]:
 
     if np.isclose(n, 0, atol=Eps.eps12):
@@ -59,15 +76,20 @@ def divisors(n: float) -> npt.NDArray[np.float64]:
     divs = i[n % i == 0]
     all_divs = np.unique(np.concatenate((divs, n // divs)))
     return all_divs
+def _all_almost_divisors(number: float, error: float) -> npt.NDArray[np.float64]:
+    _, divs = _tolerated_mcd(np.array([number], dtype=np.float64), error)
+    return divs
 def mult_divisors(ns: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-    if not ns:
-        return np.array([])
+    if ns.size == 0:
+        return np.array([], dtype=np.float64)
 
-    overall_gcd = np.gcd.reduce(math.gcd(), ns)
+    ns_int = np.asarray(ns, dtype=np.int64)
+    overall_gcd = np.gcd.reduce(ns_int)
+
     if overall_gcd == 0:
-        return np.array([])
+        return np.array([], dtype=np.float64)
 
-    overall_gcd = abs(overall_gcd)
+    overall_gcd = int(abs(overall_gcd))
     divs = set()
     limit = math.isqrt(overall_gcd)
 
@@ -76,7 +98,20 @@ def mult_divisors(ns: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
             divs.add(i)
             divs.add(overall_gcd // i)
 
-    return np.asarray(sorted(list(divs)))
+    return np.asarray(sorted(list(divs)), dtype=np.float64)
+
+def filter_arrays_tolerance(numbers: npt.NDArray[np.float64], digit: int, sort: bool = False) -> npt.NDArray[np.float64]:
+    if sort:
+        max_val = numbers[-1]
+    else:
+        max_val = np.max(numbers)
+
+    if 0.0 < max_val < 10.0 ** digit:
+        warnings.warn("Cifre decimali per la tolleranza non valide. Ricalcolo l'ordine di grandezza.")
+        digit = int(np.floor(np.log10(max_val)) - 2)
+
+    rounded_array = np.round(numbers, -digit)
+    return np.unique(rounded_array, axis=0)
 
 @dataclass(frozen=True)
 class EpsConfig:
