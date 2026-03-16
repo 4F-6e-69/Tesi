@@ -6,3 +6,7 @@ src/models/shape/test
 src/models/plane/test
 src/models/robot/test
 src/models/pocket/test
+
+__pycache__
+
+file

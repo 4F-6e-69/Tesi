@@ -7,7 +7,7 @@ from shapely.geometry import Polygon, Point
 from shapely import affinity
 
 from src.utils import Eps
-from src.utils import ArrayLike, Resets, Ref
+from src.utils import ArrayLike, Resets, Ref, DiscretizationMethod
 from src.utils import validate_array_of_2d_coordinates, validate_2d_coordinates
 from src.utils import _tolerated_mcd, filter_arrays_tolerance, _all_almost_divisors
 
@@ -124,21 +124,40 @@ class Shape:
     def min_discretization_step(self) -> float:
         if self._min_discretization_step is None:
             self._min_discretization_step = self._calc_min_discretization_step()
+
+        if isinstance(self, Shape):
+            warnings.warn("Il robot è in grado di gestire da se la velocità di conseguenza verranno passati i vertici come punto di controllo")
+
         return self._min_discretization_step
     @property
     def max_discretization_step(self) -> float:
         if self._max_discretization_step is None:
             self._max_discretization_step = self._calc_max_discretization_step()
+
+        if isinstance(self, Shape):
+            warnings.warn(
+                "Il robot è in grado di gestire da se la velocità di conseguenza verranno passati i vertici come punto di controllo")
+
         return self._max_discretization_step
     @property
     def sure_steps(self) -> npt.NDArray[np.float64] | None:
         if self._sure_steps is None:
             warnings.warn("I passi di discretizzazione sicura della figura non sono ancora stati definiti")
+
+        if isinstance(self, Shape):
+            warnings.warn(
+                "Il robot è in grado di gestire da se la velocità di conseguenza verranno passati i vertici come punto di controllo")
+
         return self._sure_steps
     @property
     def discretization_step(self) -> float | None:
         if self._discretization_step is None:
             warnings.warn("Passo di discretizzazione della figura non ancora definito")
+
+        if isinstance(self, Shape):
+            warnings.warn(
+                "Il robot è in grado di gestire da se la velocità di conseguenza verranno passati i vertici come punto di controllo")
+
         return self._discretization_step
     @discretization_step.setter
     def discretization_step(self, step: float, **kwargs) -> None:
@@ -155,7 +174,7 @@ class Shape:
             self._discretization_step = self.max_discretization_step
             return
 
-        is_safe = np.any((self.sure_steps >= step - __epsilon) & (self.sure_steps <= step + __epsilon))
+        is_safe = np.any((self.sure_steps > step - __epsilon) & (self.sure_steps < step + __epsilon))
         if not is_safe:
             if not __cast:
                 warnings.warn("Il passo impostato non è totalmente sicuro, il percorso calcolato potrebbe subire deformazioni")
@@ -165,6 +184,10 @@ class Shape:
                 step = float(self.sure_steps[best_index])
 
         self._discretization_step = step
+
+        if isinstance(self, Shape):
+            warnings.warn(
+                "Il robot è in grado di gestire da se la velocità di conseguenza verranno passati i vertici come punto di controllo...  il passo di discretizzazione calcolato non verrà usato")
 
     def _calc_min_discretization_step(self, **kwargs) -> float:
         __len: float | None = kwargs.get("__len", None)
@@ -187,27 +210,115 @@ class Shape:
 
     def discretize(self, **kwargs) -> npt.NDArray[np.float64]:
         __custom_step = kwargs.get("__custom_step", None)
+        __discretization_method: DiscretizationMethod = kwargs.get("__discretization_method", None)
+
+        if __discretization_method is None:
+            self._discretization()
+            self.reset_cache()
+            return self._closure
 
         if __custom_step is not None:
             self.discretization_step = __custom_step
 
-        self._discretization()
+        if __discretization_method is "adaptive":
+            self._discretization_adaptive()
+        elif __discretization_method is "uniform":
+            self._discretization_uniform()
+        else:
+            self._discretization()
+            warnings.warn(f"{__discretization_method} non valido, metodo di discretizzazione restituito NONE")
+
         self.reset_cache()
 
         return self._closure
     def _discretization(self):
+        x, y = self.shapely.exterior.coords.xy
+        return np.column_stack((np.asarray(x, dtype=np.float64), np.asarray(y, dtype=np.float64)))
+    def _discretization_adaptive(self):
         perimeter = self.shapely.exterior
-        total_length = self.length
 
         if self.discretization_step is None:
             _ = self.max_discretization_step
             mid_index = len(self.sure_steps) // 2
             self.discretization_step = float(self.sure_steps[mid_index])
 
-        distances = np.arange(0, total_length, self.discretization_step)
-        points = [perimeter.interpolate(d) for d in distances]
-        self._closure = np.array([[p.x, p.y] for p in points], dtype=np.float64)
+        step = self.discretization_step
 
+        coord = np.array(perimeter.coords)
+        points = []
+
+        for i in range(len(coord) - 1):
+            p1 = coord[i]
+            p2 = coord[i + 1]
+
+            segment_vector = p2 - p1
+            segment_length = np.linalg.norm(segment_vector)
+
+            num_steps = int(np.round(segment_length / step))
+
+            if num_steps == 0:
+                continue
+
+            for j in range(num_steps):
+                fraction = j / num_steps
+                new_point = p1 + (segment_vector * fraction)
+                points.append(new_point)
+
+        self._closure = np.array(points, dtype=np.float64)
+        return self._closure
+    def _discretization_uniform(self) -> npt.NDArray[np.float64]:
+        if self.discretization_step is None:
+            _ = self.max_discretization_step
+            mid_index = len(self.sure_steps) // 2
+            self.discretization_step = float(self.sure_steps[mid_index])
+
+        step = self.discretization_step
+        coords = np.array(self.shapely.exterior.coords)
+
+        points = [coords[0]]
+        current_pt = coords[0]
+
+        seg_idx = 0
+        current_t = 0.0
+
+        while seg_idx < len(coords) - 1:
+            A = coords[seg_idx]
+            B = coords[seg_idx + 1]
+
+            V = B - A
+            W = A - current_pt
+
+            a = np.dot(V, V)
+            b = 2 * np.dot(W, V)
+            c = np.dot(W, W) - step ** 2
+
+            if a == 0:
+                seg_idx += 1
+                current_t = 0.0
+                continue
+
+            discriminant = b ** 2 - 4 * a * c
+
+            if discriminant >= 0:
+                t1 = (-b - np.sqrt(discriminant)) / (2 * a)
+                t2 = (-b + np.sqrt(discriminant)) / (2 * a)
+
+                valid_ts = [t for t in (t1, t2) if 1.0 + 1e-7 < t > current_t + 1e-7]
+                if valid_ts:
+                    t = min(valid_ts)
+                    t_capped = min(t, 1.0)
+
+                    next_pt = A + t_capped * V
+                    points.append(next_pt)
+
+                    current_pt = next_pt
+                    current_t = t_capped
+                    continue
+
+            seg_idx += 1
+            current_t = 0.0
+
+        self._closure = np.array(points, dtype=np.float64)
         return self._closure
 
     def reset_cache(self):

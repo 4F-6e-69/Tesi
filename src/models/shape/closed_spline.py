@@ -1,8 +1,11 @@
 import numpy as np
 from numpy import typing as npt
 
+import warnings
+
 from scipy.interpolate import splprep, splev, interp1d
 from src.models.shape.parametric_shape import ParametricShape
+from src.utils import Eps
 from src.utils import ArrayLike, Ref
 from src.utils import validate_array_of_2d_coordinates
 
@@ -51,12 +54,13 @@ class ClosedSpline(ParametricShape):
     def t_range(self) -> tuple[float, float]:
         return 0.0, 1.0
 
+    def discretize(self, **kwargs) -> npt.NDArray[np.float64]:
+        __custom_step = kwargs.get("__custom_step", None)
+        return super().discretize(__custom_step=__custom_step, __discretization_method=None)
     def _discretization(self):
-        # 1. Fallback specifico per le Spline (spostato qui!)
         if self.discretization_step is None:
             self.discretization_step = self.length / 100.0
 
-        # 2. Riparametrizzazione per lunghezza d'arco
         x_fine = self.high_definition_closure[:, 0]
         y_fine = self.high_definition_closure[:, 1]
 
@@ -67,7 +71,6 @@ class ClosedSpline(ParametricShape):
 
         u_from_dist = interp1d(cumulative_distance, self._high_definition_u)
 
-        # 3. Calcolo punti adattivo
         tot_distance = cumulative_distance[-1]
         num_of_segments = max(1, int(np.round(tot_distance / self.discretization_step)))
         num_of_points = num_of_segments + 1
@@ -75,11 +78,35 @@ class ClosedSpline(ParametricShape):
         distanze_target = np.linspace(0, tot_distance, num_of_points)
         u_equidistanti = u_from_dist(distanze_target)
 
-        # 4. Generazione coordinate
         x_equi, y_equi = splev(u_equidistanti, self.__tck)
         self._closure = np.column_stack((x_equi, y_equi))
 
         return self._closure
+
+    @property
+    def sure_steps(self) -> npt.NDArray[np.float64] | None:
+        warnings.warn(f"Step sicuri non definiti per le spline")
+        return None
+    @ParametricShape.discretization_step.setter
+    def discretization_step(self, step: float, **kwargs) -> None:
+        __cast = kwargs.get("__cast", True)
+        __epsilon = kwargs.get("__epsilon", Eps.eps12)
+
+        step = float(abs(step))
+        if step < self.min_discretization_step - __epsilon:
+            warnings.warn(f"Passo di discretizzazione troppo piccolo, minimo accettato: {self.min_discretization_step}")
+            self._discretization_step = self.min_discretization_step
+            return
+        if step > self.max_discretization_step + __epsilon:
+            warnings.warn(f"Passo di discretizzazione troppo grande, massimo accettato: {self.max_discretization_step}")
+            self._discretization_step = self.max_discretization_step
+            return
+
+
+        self._discretization_step = step
+    def _calc_max_discretization_step(self, **kwargs) -> float:
+        max_discretization_step = self.length / 3
+        return max_discretization_step
 
     def translate(self, x_off: float = 0.0, y_off: float = 0.0) -> 'ClosedSpline':
         super().translate(x_off, y_off)

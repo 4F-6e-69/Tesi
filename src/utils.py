@@ -11,6 +11,7 @@ CoordDType = Union[int, float, np.number]
 ArrayLike = Union[npt.ArrayLike, npt.NDArray]
 Resets = Union[List[Literal["all", "length", "area", "bounds", "barycenter", "step", "closure"]], Literal["all", "length", "area", "bounds", "barycenter", "step", "closure"], None]
 Ref = Literal["origin", "barycenter"]
+DiscretizationMethod = Union[Literal["adaptive", "uniform"], None]
 
 # Validator
 def __validate_numeric_dtype(array: npt.NDArray) -> npt.NDArray[np.float64]:
