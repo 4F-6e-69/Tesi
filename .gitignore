@@ -1,0 +1,52 @@
+# =========================
+# Ambienti Virtuali
+# =========================
+.venv/
+venv/
+env/
+
+# =========================
+# Variabili d'Ambiente e Segreti
+# =========================
+.env
+.env.*
+
+# =========================
+# File Generati da Python
+# =========================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# =========================
+# File di Build e Distribuzione
+# =========================
+build/
+dist/
+*.egg-info/
+
+# =========================
+# Test e Copertura (Aggiunte consigliate)
+# =========================
+.pytest_cache/
+.coverage
+htmlcov/
+
+# =========================
+# Log e Database locali (Aggiunte consigliate)
+# =========================
+*.log
+*.sqlite3
+
+# =========================
+# Editor e IDE
+# =========================
+.idea/
+.vscode/
+
+# =========================
+# Sistema Operativo
+# =========================
+.DS_Store
+Thumbs.db
