@@ -48,7 +48,7 @@ def divisors(n: int | float) -> npt.NDArray[np.float64]:
         return np.array([1], dtype=np.int64)
 
     # Identificazione dei candidati fino alla radice quadrata
-    limit = int(n ** 0.5)
+    limit = int(n**0.5)
     candidates = np.arange(1, limit + 1, dtype=np.int64)
 
     # Filtraggio dei divisori esatti tramite modulo
@@ -59,7 +59,10 @@ def divisors(n: int | float) -> npt.NDArray[np.float64]:
 
     return all_divs
 
-def common_divisors(ns: npt.NDArray[np.float64]) -> Tuple[int | float, npt.NDArray[np.float64]]:
+
+def common_divisors(
+    ns: npt.NDArray[np.float64],
+) -> Tuple[int | float, npt.NDArray[np.float64]]:
     """
     Calcola il Massimo Comune Divisore (MCD) e tutti i divisori comuni di un array.
 
@@ -113,6 +116,7 @@ def common_divisors(ns: npt.NDArray[np.float64]) -> Tuple[int | float, npt.NDArr
     # Combinazione con i divisori complementari e rimozione duplicati
     return overall_gcd, np.unique(np.concatenate((divs, overall_gcd // divs)))
 
+
 def find_near_divisors(number: float, error: float) -> npt.NDArray[np.float64]:
     """
     Trova i divisori di un singolo numero (float) entro un margine di tolleranza.
@@ -130,28 +134,33 @@ def find_near_divisors(number: float, error: float) -> npt.NDArray[np.float64]:
     """
 
     # Wrapper: cast dello scalare ad array 1D per riutilizzare la logica vettoriale core
-    _, divs = common_divisors_with_tolerance(np.array([number], dtype=np.float64), error)
+    _, divs = common_divisors_with_tolerance(
+        np.array([number], dtype=np.float64), error
+    )
     return divs
 
-def common_divisors_with_tolerance(numbers: npt.NDArray[np.float64], error: float) -> Tuple[float, npt.NDArray[np.float64]]:
+
+def common_divisors_with_tolerance(
+    numbers: npt.NDArray[np.float64], error: float
+) -> Tuple[float, npt.NDArray[np.float64]]:
     """
-        Calcola i divisori comuni di un array di float entro un margine di tolleranza.
+    Calcola i divisori comuni di un array di float entro un margine di tolleranza.
 
-        Sfrutta l'aritmetica modulare per valutare se il resto della divisione
-        è vicino a 0 o al divisore stesso (simulando un errore fluttuante simmetrico).
+    Sfrutta l'aritmetica modulare per valutare se il resto della divisione
+    è vicino a 0 o al divisore stesso (simulando un errore fluttuante simmetrico).
 
-        Attenzione: questo algoritmo genera una matrice intermedia di dimensione
-        (min(numbers) x len(numbers)). Non è adatto a numeri di magnitudo estrema.
+    Attenzione: questo algoritmo genera una matrice intermedia di dimensione
+    (min(numbers) x len(numbers)). Non è adatto a numeri di magnitudo estrema.
 
-        Args:
-            numbers (npt.NDArray[np.floating]): Array 1D di numeri positivi.
-            error (float): Tolleranza massima assoluta ammessa per il resto.
+    Args:
+        numbers (npt.NDArray[np.floating]): Array 1D di numeri positivi.
+        error (float): Tolleranza massima assoluta ammessa per il resto.
 
-        Returns:
-            Tuple[float, npt.NDArray[np.float64]]:
-                - max_divisor: Il divisore più grande trovato (o 1.0 come fallback).
-                - divisors: Array dei divisori validi ordinati in modo crescente.
-        """
+    Returns:
+        Tuple[float, npt.NDArray[np.float64]]:
+            - max_divisor: Il divisore più grande trovato (o 1.0 come fallback).
+            - divisors: Array dei divisori validi ordinati in modo crescente.
+    """
 
     if numbers.size == 0:
         return 1.0, np.array([1.0], dtype=np.float64)
@@ -183,7 +192,10 @@ def common_divisors_with_tolerance(numbers: npt.NDArray[np.float64], error: floa
     # Estrazione del massimo (array pre-ordinato da arange)
     return float(sure_divisors[-1]), sure_divisors
 
-def filter_by_tolerance(numbers: npt.NDArray[np.floating], digit: int, assume_sorted: bool = False) -> npt.NDArray[np.float64]:
+
+def filter_by_tolerance(
+    numbers: npt.NDArray[np.floating], digit: int, assume_sorted: bool = False
+) -> npt.NDArray[np.float64]:
     """
     Filtra i duplicati in un array applicando una quantizzazione (arrotondamento).
 
@@ -213,11 +225,11 @@ def filter_by_tolerance(numbers: npt.NDArray[np.floating], digit: int, assume_so
         max_val = np.max(np.abs(numbers))
 
     # Gestione sicura dell'array di soli zeri (evita log10(0))
-    if math.isclose(max_val, 0, abs_tol=10**(-3-digit if digit < 10 else -digit)):
+    if math.isclose(max_val, 0, abs_tol=10 ** (-3 - digit if digit < 10 else -digit)):
         return np.array([0.0], dtype=np.float64)
 
     # Fallback logico: ricalcolo dell'ordine di grandezza se eccessivo
-    if max_val < 10.0 ** digit:
+    if max_val < 10.0**digit:
         warnings.warn(
             "Tolleranza sproporzionata. L'ordine di grandezza è stato ricalcolato in base al massimo valore dell'array."
         )

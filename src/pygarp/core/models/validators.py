@@ -5,6 +5,7 @@ from numpy import typing as npt
 
 from src.pygarp.core.models.commons import ArrayLike
 
+
 def __validate_numeric_dtype(array: npt.NDArray) -> npt.NDArray[np.float64]:
     """
     Valida il tipo di dato di un array e lo converte in float64 se necessario.
@@ -34,6 +35,7 @@ def __validate_numeric_dtype(array: npt.NDArray) -> npt.NDArray[np.float64]:
 
     return array
 
+
 def validate_nd_coordinates(coordinates: ArrayLike, n: int) -> npt.NDArray[np.float64]:
     """
     Valida e formatta una singola coordinata in uno spazio n-dimensionale.
@@ -55,7 +57,9 @@ def validate_nd_coordinates(coordinates: ArrayLike, n: int) -> npt.NDArray[np.fl
     try:
         new_coord = np.asarray(coordinates).ravel()
     except Exception as e:
-        raise TypeError("Le coordinate devono essere di tipo array-numpy o array-like") from e
+        raise TypeError(
+            "Le coordinate devono essere di tipo array-numpy o array-like"
+        ) from e
 
     # Valida il parametro della dimensionalità attesa
     if not isinstance(n, int) or n <= 0:
@@ -67,6 +71,7 @@ def validate_nd_coordinates(coordinates: ArrayLike, n: int) -> npt.NDArray[np.fl
 
     # Valida il tipo di dato e applica il cast a float64
     return __validate_numeric_dtype(new_coord)
+
 
 def validate_array_of_nd_coordinates(coordinates, n: int):
     """
@@ -92,7 +97,9 @@ def validate_array_of_nd_coordinates(coordinates, n: int):
     try:
         new_coord = np.asarray(coordinates)
     except Exception as e:
-        raise TypeError("Le coordinate devono essere di tipo array-numpy o array-like") from e
+        raise TypeError(
+            "Le coordinate devono essere di tipo array-numpy o array-like"
+        ) from e
 
     # Valida il parametro della dimensionalità attesa
     if not isinstance(n, int) or n <= 0:
