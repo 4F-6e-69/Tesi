@@ -7,35 +7,47 @@ import warnings
 
 from scipy.interpolate import splprep, splev, interp1d
 from pygarp.core.models.shapes.parametric_interface import ParametricShape
-from pygarp.core.models.commons import Eps, ArrayLike, TransformationRef, EpsConfig, DiscretizationMethod
-from pygarp.core.models.validators import validate_array_of_nd_coordinates, validate_nd_coordinates
+from pygarp.core.models.commons import (
+    Eps,
+    ArrayLike,
+    TransformationRef,
+    EpsConfig,
+    DiscretizationMethod,
+)
+from pygarp.core.models.validators import (
+    validate_array_of_nd_coordinates,
+    validate_nd_coordinates,
+)
 
 
 class ClosedSpline(ParametricShape):
-    standard_definition = 10 ** ParametricShape.shape_order
+    standard_definition = 10**ParametricShape.shape_order
 
     def __init__(
-            self,
-            control_points: ArrayLike,
-            smoothness: float = 0.25,
-            definition: int = standard_definition,
-            *,
-            origin: ArrayLike = None,
-            identifier: str | None = None,
-            name: str | None = None,
-            description: str | None = None,
-            _skip: bool = False,
-            eps: EpsConfig | float = Eps.eps10,
+        self,
+        control_points: ArrayLike,
+        smoothness: float = 0.25,
+        definition: int = standard_definition,
+        *,
+        origin: ArrayLike = None,
+        identifier: str | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        _skip: bool = False,
+        eps: EpsConfig | float = Eps.eps10,
     ):
         if _skip:
             control_points_array = validate_array_of_nd_coordinates(control_points, 2)
-            origin_array = None if origin is None else validate_nd_coordinates(origin, 2)
+            origin_array = (
+                None if origin is None else validate_nd_coordinates(origin, 2)
+            )
         else:
             control_points_array = control_points
             origin_array = None if origin is None else origin
 
-
-        spline_data = splprep(control_points_array.astype(np.float64).T, s=smoothness, per=1)
+        spline_data = splprep(
+            control_points_array.astype(np.float64).T, s=smoothness, per=1
+        )
 
         self._tck = spline_data[0]
         self._u = spline_data[1]
@@ -48,17 +60,18 @@ class ClosedSpline(ParametricShape):
         super().__init__(
             points=self._high_definition_closure,
             origin=origin_array,
-            identifier = identifier,
-            name = name,
-            description = description,
-            _skip = True,
-            assume_sort = True,
-            eps = eps
+            identifier=identifier,
+            name=name,
+            description=description,
+            _skip=True,
+            assume_sort=True,
+            eps=eps,
         )
 
     @property
     def high_definition_u(self) -> npt.NDArray[np.float64]:
         return self._high_definition_u
+
     @property
     def high_definition_closure(self) -> npt.NDArray[np.float64]:
         return self._high_definition_closure
@@ -68,6 +81,7 @@ class ClosedSpline(ParametricShape):
         t_array = t_array % 1.0
         x, y = splev(t_array, self._tck)
         return np.column_stack((x, y))
+
     @property
     def t_range(self) -> tuple[float, float]:
         return 0.0, 1.0
@@ -78,8 +92,14 @@ class ClosedSpline(ParametricShape):
         discretization_method: DiscretizationMethod = None,
         custom_step: float | None = None,
     ) -> npt.NDArray[np.float64]:
-        discretization_method = discretization_method if discretization_method is None or discretization_method == "uniform" else None
-        return super().discretize(discretization_method=discretization_method, custom_step=custom_step)
+        discretization_method = (
+            discretization_method
+            if discretization_method is None or discretization_method == "uniform"
+            else None
+        )
+        return super().discretize(
+            discretization_method=discretization_method, custom_step=custom_step
+        )
 
     def _discretization_uniform(self):
         if self.step is None:
@@ -90,7 +110,7 @@ class ClosedSpline(ParametricShape):
 
         dx = np.diff(x_fine)
         dy = np.diff(y_fine)
-        segment_distances = np.sqrt(dx ** 2 + dy ** 2)
+        segment_distances = np.sqrt(dx**2 + dy**2)
         cumulative_distance = np.insert(np.cumsum(segment_distances), 0, 0)
 
         u_from_dist = interp1d(cumulative_distance, self._high_definition_u)
@@ -123,17 +143,22 @@ class ClosedSpline(ParametricShape):
         step = float(abs(step))
 
         if step < self.min_step - eps:
-            if warn: warnings.warn(f"Step al di fuori dei limiti (troppo piccolo), cast a {self.min_step}")
+            if warn:
+                warnings.warn(
+                    f"Step al di fuori dei limiti (troppo piccolo), cast a {self.min_step}"
+                )
             self._step = self.min_step
             return
 
         if step > self.max_step + eps:
-            if warn: warnings.warn(f"Step al di fuori dei limiti (troppo grande), cast a {self.max_step}")
+            if warn:
+                warnings.warn(
+                    f"Step al di fuori dei limiti (troppo grande), cast a {self.max_step}"
+                )
             self._step = self.max_step
             return
 
         self._step = step
-
 
     def _calc_step_max(self) -> float:
         max_discretization_step = self.length / 3
@@ -148,6 +173,7 @@ class ClosedSpline(ParametricShape):
 
         self._high_definition_closure += [x_off, y_off]
         return self
+
     def rotate(self, angle: float = 0.0, ref: TransformationRef = "origin") -> Self:
         if ref not in ("origin", "center"):
             raise ValueError(f"riferimento per la rotazione non valido")
@@ -169,10 +195,7 @@ class ClosedSpline(ParametricShape):
 
         hd_shifted = self._high_definition_closure - [cx, cy]
 
-        rotation_matrix = np.array([
-            [cos_val, sin_val],
-            [-sin_val, cos_val]
-        ])
+        rotation_matrix = np.array([[cos_val, sin_val], [-sin_val, cos_val]])
 
         self._high_definition_closure = np.dot(hd_shifted, rotation_matrix) + [cx, cy]
         return self
