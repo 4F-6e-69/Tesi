@@ -60,7 +60,7 @@ class RotationMixin(TransformationRequirements, ABC):
             )
         )
 
-        if ref == "barycenter":
+        if ref == "center":
             orig_point = affinity.rotate(
                 Point(*self.origin), angle=angle, origin=(ref_origin[0], ref_origin[1])
             )
@@ -88,7 +88,7 @@ class ScaleMixin(TransformationRequirements, ABC):
             )
         )
 
-        if ref == "barycenter":
+        if ref == "center":
             orig_point = affinity.scale(
                 Point(*self.origin),
                 xfact=x_fact,
