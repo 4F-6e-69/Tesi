@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from typing import Union
+from typing import Union, Optional
+from typing import List, Literal
 
 import numpy as np
 from numpy import typing as npt
@@ -7,6 +8,10 @@ from numpy import typing as npt
 CoordsType = Union[int, float, np.number]
 ArrayLike = Union[npt.NDArray[np.number], npt.ArrayLike, np.ndarray]
 
+__Cache = Literal["all", "bounds", "area", "length", "barycenter", "step", "closure"]
+Caches = Optional[List[__Cache], __Cache]
+TransformationRef = Literal["origin", "center"]
+DiscretizationMethod = Optional[Literal["adaptive", "uniform", "none"]]
 
 @dataclass(frozen=True)
 class EpsConfig:

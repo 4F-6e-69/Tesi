@@ -239,3 +239,45 @@ def filter_by_tolerance(
     # Quantizzazione tramite arrotondamento all'ordine di magnitudo (-digit) e filtraggio
     rounded_array = np.round(numbers, -digit)
     return np.unique(rounded_array)
+
+
+def sort_by_tolerance_2d_array(points: npt.NDArray[np.float64], decimals: int = 7) -> npt.NDArray[np.float64]:
+    """
+    Ordina un set di punti 2D in base al loro angolo polare con tolleranza.
+
+    L'ordinamento avviene calcolando l'angolo radiale (in radianti) di ogni punto
+    rispetto all'origine (0,0) utilizzando la funzione arcotangente2. Viene applicata
+    una tolleranza tramite arrotondamento per gestire errori di floating-point
+    e garantire un ordinamento consistente di punti quasi collineari.
+
+    Args:
+        points: Un array NumPy di forma (N, 2) contenente le coordinate [x, y].
+            Supporta sottotipi di np.floating (float32, float64).
+        decimals: Numero di cifre decimali a cui arrotondare l'angolo
+            prima dell'ordinamento. Previene instabilità dovute a epsilon di macchina.
+            Default a 8.
+
+    Returns:
+        Un nuovo array NumPy di forma (N, 2) con i punti ordinati in senso
+        antiorario, partendo dall'asse X positivo.
+
+    Raises:
+        ValueError: Se l'array in input non ha la forma corretta (N, 2).
+    """
+
+    # Verifica della dimensione del array
+    if points.ndim != 2 or points.shape[1] != 2:
+        raise ValueError(f"Attesi punti (N, 2), ricevuto {points.shape}")
+    if points.dtype != np.number:
+        raise ValueError(f"Data type dell'array non valido, ricevuto {points.dtype}")
+
+    # Calcolo angoli polari per ogni vertice
+    alphas = np.arctan2(points[:, 1], points[:, 0])
+
+    # Approssimazione a tot cifre decimale in fase di ordinamento
+    if decimals is not None:
+        alphas = np.round(alphas, decimals=decimals)
+
+    # Calcolo degli indici ordinati e della copia dell'array originale
+    indices = np.argsort(alphas, kind='stable')
+    return points[indices]
