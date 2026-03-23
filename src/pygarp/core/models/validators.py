@@ -1,9 +1,11 @@
 import warnings
+from typing import Optional, Tuple, Self
+from pydantic import BaseModel, Field, model_validator
 
 import numpy as np
 from numpy import typing as npt
 
-from src.pygarp.core.models.commons import ArrayLike
+from src.pygarp.core.models.commons import ArrayLike, FillType
 
 
 def __validate_numeric_dtype(array: npt.NDArray) -> npt.NDArray[np.float64]:
@@ -111,3 +113,62 @@ def validate_array_of_nd_coordinates(coordinates, n: int):
 
     # Valida il tipo di dato e applica il cast a float64
     return __validate_numeric_dtype(new_coord)
+
+
+class JobConfig(BaseModel):
+    # Geometria
+    shape: Optional[str] = None
+    radius: Optional[float] = Field(None, gt=0)
+    width: Optional[float] = Field(None, gt=0)
+    height: Optional[float] = Field(None, gt=0)
+    side: Optional[float] = Field(None, gt=0)
+    path_in: Optional[str] = None
+
+    # Orientamento
+    origin: Tuple[float, float, float] = (0, 0, 0)
+    x_axis: Tuple[float, float, float] = (1, 0, 0)
+    y_axis: Tuple[float, float, float] = (0, 1, 0)
+    z_axis: Tuple[float, float, float] = (0, 0, 1)
+
+    # Pocketing
+    outline: bool = True
+    fill: Optional[FillType] = None
+    fill_direction: float = 0.0
+
+    # Scarfing Concentrico
+    concentric: bool = False
+    c_offset: Optional[float] = Field(None, gt=0)
+    c_cycles: int = Field(1, ge=1)
+
+    # Scarfing Ricorsivo
+    recursive: bool = False
+    r_offset: float = 0.5
+    r_cycles: int = Field(1, ge=1)
+
+    # Input / Output
+    path_out: Optional[str] = None
+    job_path: Optional[str] = None
+    job_out: Optional[str] = None
+
+    @model_validator(mode="after")
+    def check_dimensions(self) -> Self:
+        if self.shape == "circle" and self.radius is None:
+            raise ValueError(
+                "Il raggio (--radius) è obbligatorio per la forma 'circle'"
+            )
+
+        if self.shape == "rectangle" and (self.width is None or self.height is None):
+            raise ValueError(
+                "Larghezza (--width) e Altezza (--height) sono obbligatorie per 'rectangle'"
+            )
+
+        if self.shape == "regular-polygon" and self.side is None:
+            raise ValueError("Il lato (--side) è obbligatorio per 'regular-polygon'")
+
+        if self.shape in ["shape", "spline"] and self.path_in is None:
+            nome_forma = "spline" if self.shape == "spline" else "forma generica"
+            raise ValueError(
+                f"Per {nome_forma} va specificato il percorso del file (--path-in)"
+            )
+
+        return self

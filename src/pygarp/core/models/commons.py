@@ -16,6 +16,7 @@ ShapeType = Literal["shape", "regular-polygon", "rectangle", "circle", "spline"]
 
 FillType = Literal["grid", "linear"]
 
+
 @dataclass(frozen=True)
 class EpsConfig:
     __eps04: float = 1e-04
