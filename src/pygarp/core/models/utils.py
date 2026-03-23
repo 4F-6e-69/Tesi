@@ -241,7 +241,9 @@ def filter_by_tolerance(
     return np.unique(rounded_array)
 
 
-def sort_by_tolerance_2d_array(points: npt.NDArray[np.float64], decimals: int = 7) -> npt.NDArray[np.float64]:
+def sort_by_tolerance_2d_array(
+    points: npt.NDArray[np.float64], decimals: int = 7
+) -> npt.NDArray[np.float64]:
     """
     Ordina un set di punti 2D in base al loro angolo polare con tolleranza.
 
@@ -279,5 +281,5 @@ def sort_by_tolerance_2d_array(points: npt.NDArray[np.float64], decimals: int = 
         alphas = np.round(alphas, decimals=decimals)
 
     # Calcolo degli indici ordinati e della copia dell'array originale
-    indices = np.argsort(alphas, kind='stable')
+    indices = np.argsort(alphas, kind="stable")
     return points[indices]

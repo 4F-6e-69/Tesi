@@ -13,6 +13,7 @@ Caches = Optional[List[__Cache], __Cache]
 TransformationRef = Literal["origin", "center"]
 DiscretizationMethod = Optional[Literal["adaptive", "uniform", "none"]]
 
+
 @dataclass(frozen=True)
 class EpsConfig:
     __eps04: float = 1e-04

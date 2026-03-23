@@ -5,7 +5,11 @@ from numpy import typing as npt
 import numpy as np
 from shapely.geometry import Polygon
 
-from pygarp.core.models.utils import common_divisors_with_tolerance, find_near_divisors, filter_by_tolerance
+from pygarp.core.models.utils import (
+    common_divisors_with_tolerance,
+    find_near_divisors,
+    filter_by_tolerance,
+)
 from pygarp.core.models.commons import Eps, DiscretizationMethod, EpsConfig
 
 
@@ -14,6 +18,7 @@ class DiscretizationRequirements(ABC):
     @abstractmethod
     def polygon(self) -> Polygon:
         pass
+
     @property
     @abstractmethod
     def length(self) -> float:
@@ -22,6 +27,7 @@ class DiscretizationRequirements(ABC):
     @abstractmethod
     def reset_all(self):
         pass
+
 
 class DiscretizationMixin(DiscretizationRequirements, ABC):
     shape_order: int = 3
@@ -40,16 +46,19 @@ class DiscretizationMixin(DiscretizationRequirements, ABC):
         if self._step_min is None:
             self._step_min = self._calc_step_min()
         return self._step_min
+
     @property
     def max_step(self) -> float:
         if self._step_max is None:
             self._step_max = self._calc_step_max()
         return self._step_max
+
     @property
     def sure_steps(self) -> npt.NDArray[np.float64] | None:
         if self._sure_steps is None:
             _ = self.max_step
         return self._sure_steps
+
     @property
     def step(self) -> float | None:
         return self._step
@@ -57,21 +66,40 @@ class DiscretizationMixin(DiscretizationRequirements, ABC):
     @step.setter
     def step(self, step: float):
         self.set_step(step)
-    def set_step(self, step: float, *, cast: bool = True, eps: EpsConfig | float = Eps.eps10, warn: bool = False):
+
+    def set_step(
+        self,
+        step: float,
+        *,
+        cast: bool = True,
+        eps: EpsConfig | float = Eps.eps10,
+        warn: bool = False,
+    ):
         step = float(abs(step))
         if step < self.min_step - eps:
-            if warn: warnings.warn(f"Passo di discretizzazione troppo piccolo, minimo accettato: {self.min_step}")
+            if warn:
+                warnings.warn(
+                    f"Passo di discretizzazione troppo piccolo, minimo accettato: {self.min_step}"
+                )
             self._step = self.min_step
             return
         if step > self.max_step + eps:
-            if warn: warnings.warn(f"Passo di discretizzazione troppo grande, massimo accettato: {self.max_step}")
+            if warn:
+                warnings.warn(
+                    f"Passo di discretizzazione troppo grande, massimo accettato: {self.max_step}"
+                )
             self._step = self.max_step
             return
 
-        is_safe = np.any((self.sure_steps > step - eps) & (self.sure_steps < step + eps))
+        is_safe = np.any(
+            (self.sure_steps > step - eps) & (self.sure_steps < step + eps)
+        )
         if not is_safe:
             if not cast:
-                if warn: warnings.warn("Il passo impostato non è totalmente sicuro, il percorso calcolato potrebbe subire deformazioni")
+                if warn:
+                    warnings.warn(
+                        "Il passo impostato non è totalmente sicuro, il percorso calcolato potrebbe subire deformazioni"
+                    )
             else:
                 diffs = np.abs(self.sure_steps - step)
                 best_index = np.argmin(diffs)
@@ -80,11 +108,14 @@ class DiscretizationMixin(DiscretizationRequirements, ABC):
 
     def _calc_step_min(self) -> float:
         order = np.floor(np.log10(self.length) - self.shape_order)
-        return 10 ** order
+        return 10**order
+
     def _calc_step_max(self) -> float:
         points = np.array(self.polygon.exterior.coords[:-1], dtype=np.float64)
         diffs = points - np.roll(points, 1, axis=0)
-        dists = np.round(np.linalg.norm(diffs, axis=1) * (10 ** self.shape_order)).astype(int)
+        dists = np.round(
+            np.linalg.norm(diffs, axis=1) * (10**self.shape_order)
+        ).astype(int)
 
         valid_dists = dists[dists > 0]
         if len(valid_dists) == 0:
@@ -92,15 +123,20 @@ class DiscretizationMixin(DiscretizationRequirements, ABC):
             return 1.0
 
         min_distance_order = np.floor(np.log10(np.min(valid_dists)))
-        tolerance = 5 * (10 ** min_distance_order)
+        tolerance = 5 * (10**min_distance_order)
         mcd, _ = common_divisors_with_tolerance(dists, tolerance)
 
         detailed_divisors = find_near_divisors(mcd, 50)
         divisors = filter_by_tolerance(detailed_divisors, 2)
-        self._sure_steps = divisors / (10 ** self.shape_order)
-        return float(mcd / (10 ** self.shape_order))
+        self._sure_steps = divisors / (10**self.shape_order)
+        return float(mcd / (10**self.shape_order))
 
-    def discretize(self, *, discretization_method: DiscretizationMethod = None, custom_step: float | None = None) -> npt.NDArray[np.float64]:
+    def discretize(
+        self,
+        *,
+        discretization_method: DiscretizationMethod = None,
+        custom_step: float | None = None,
+    ) -> npt.NDArray[np.float64]:
         if custom_step is not None:
             self.step = custom_step
 
@@ -111,15 +147,20 @@ class DiscretizationMixin(DiscretizationRequirements, ABC):
         elif discretization_method == "uniform":
             self._discretization_uniform()
         else:
-            warnings.warn(f"Metodo '{discretization_method}' non valido. Verrà usato il fallback sui vertici.")
+            warnings.warn(
+                f"Metodo '{discretization_method}' non valido. Verrà usato il fallback sui vertici."
+            )
             self._discretization()
 
         return self._closure
 
     def _discretization(self) -> npt.NDArray[np.float64]:
         x, y = self.polygon.exterior.coords.xy
-        self._closure = np.column_stack((np.asarray(x, dtype=np.float64), np.asarray(y, dtype=np.float64)))
+        self._closure = np.column_stack(
+            (np.asarray(x, dtype=np.float64), np.asarray(y, dtype=np.float64))
+        )
         return self._closure
+
     def _discretization_adaptive(self) -> npt.NDArray[np.float64]:
         perimeter = self.polygon.exterior
 
@@ -150,9 +191,11 @@ class DiscretizationMixin(DiscretizationRequirements, ABC):
                 new_point = p1 + (segment_vector * fraction)
                 points.append(new_point)
 
-        if len(points) > 0: points.append(coord[-1])
+        if len(points) > 0:
+            points.append(coord[-1])
         self._closure = np.array(points, dtype=np.float64)
         return self._closure
+
     def _discretization_uniform(self) -> npt.NDArray[np.float64]:
         if self.step is None:
             _ = self.max_step
@@ -177,14 +220,14 @@ class DiscretizationMixin(DiscretizationRequirements, ABC):
 
             a = np.dot(pv, pv)
             b = 2 * np.dot(pw, pv)
-            c = np.dot(pw, pw) - step ** 2
+            c = np.dot(pw, pw) - step**2
 
             if a == 0:
                 seg_idx += 1
                 current_t = 0.0
                 continue
 
-            discriminant = b ** 2 - 4 * a * c
+            discriminant = b**2 - 4 * a * c
 
             if discriminant >= 0:
                 t1 = (-b - np.sqrt(discriminant)) / (2 * a)
