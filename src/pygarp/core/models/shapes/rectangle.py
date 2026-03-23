@@ -12,17 +12,17 @@ from pygarp.core.models.validators import validate_nd_coordinates
 
 class Rectangle(Shape):
     def __init__(
-            self,
-            width: float,
-            height: float,
-            center: ArrayLike | None = None,
-            *,
-            origin: ArrayLike = None,
-            identifier: str | None = None,
-            name: str | None = None,
-            description: str | None = None,
-            _skip: bool = False,
-            eps: EpsConfig | float = Eps.eps10,
+        self,
+        width: float,
+        height: float,
+        center: ArrayLike | None = None,
+        *,
+        origin: ArrayLike = None,
+        identifier: str | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        _skip: bool = False,
+        eps: EpsConfig | float = Eps.eps10,
     ):
         if _skip:
             w_float = width
@@ -36,15 +36,25 @@ class Rectangle(Shape):
             if w_float < eps or h_float < eps:
                 raise ValueError("Larghezza e altezza devono essere maggiori di zero.")
 
-            center_array = np.zeros(2, dtype=np.float64) if center is None else validate_nd_coordinates(center, 2)
-            origin_array = np.zeros(2, dtype=np.float64) if origin is None else validate_nd_coordinates(origin, 2)
+            center_array = (
+                np.zeros(2, dtype=np.float64)
+                if center is None
+                else validate_nd_coordinates(center, 2)
+            )
+            origin_array = (
+                np.zeros(2, dtype=np.float64)
+                if origin is None
+                else validate_nd_coordinates(origin, 2)
+            )
 
         self._width = w_float
         self._height = h_float
         self._center = center_array
         self._angle = 0.0
 
-        vertices = Rectangle._compone_rectangle(self._center, self._width, self._height, self._angle)
+        vertices = Rectangle._compone_rectangle(
+            self._center, self._width, self._height, self._angle
+        )
 
         super().__init__(
             points=vertices,
@@ -58,24 +68,30 @@ class Rectangle(Shape):
         )
 
     @staticmethod
-    def _compone_rectangle(center: npt.NDArray[np.float64], w: float, h: float, angle: float) -> npt.NDArray[
-        np.float64]:
+    def _compone_rectangle(
+        center: npt.NDArray[np.float64], w: float, h: float, angle: float
+    ) -> npt.NDArray[np.float64]:
         cx, cy = center[0], center[1]
         half_w, half_h = w / 2.0, h / 2.0
 
-        vertices = np.array([
-            [cx - half_w, cy - half_h],  # Bottom-Left
-            [cx + half_w, cy - half_h],  # Bottom-Right
-            [cx + half_w, cy + half_h],  # Top-Right
-            [cx - half_w, cy + half_h]  # Top-Left
-        ], dtype=np.float64)
+        vertices = np.array(
+            [
+                [cx - half_w, cy - half_h],  # Bottom-Left
+                [cx + half_w, cy - half_h],  # Bottom-Right
+                [cx + half_w, cy + half_h],  # Top-Right
+                [cx - half_w, cy + half_h],  # Top-Left
+            ],
+            dtype=np.float64,
+        )
 
         if angle != 0.0:
             theta = np.radians(angle)
             cos_val, sin_val = np.cos(theta), np.sin(theta)
 
             shifted = vertices - center
-            rotated = np.dot(shifted, np.array([[cos_val, sin_val], [-sin_val, cos_val]]))
+            rotated = np.dot(
+                shifted, np.array([[cos_val, sin_val], [-sin_val, cos_val]])
+            )
             vertices = rotated + center
 
         return vertices
@@ -87,7 +103,9 @@ class Rectangle(Shape):
     @width.setter
     def width(self, value: float):
         self._width = max(float(abs(value)), Eps.eps10)
-        vertices = Rectangle._compone_rectangle(self._center, self._width, self._height, self._angle)
+        vertices = Rectangle._compone_rectangle(
+            self._center, self._width, self._height, self._angle
+        )
         super()._set_polygon(Polygon(vertices))
 
     @property
@@ -97,19 +115,25 @@ class Rectangle(Shape):
     @height.setter
     def height(self, value: float):
         self._height = max(float(abs(value)), Eps.eps10)
-        vertices = Rectangle._compone_rectangle(self._center, self._width, self._height, self._angle)
+        vertices = Rectangle._compone_rectangle(
+            self._center, self._width, self._height, self._angle
+        )
         super()._set_polygon(Polygon(vertices))
 
     @property
     def center(self) -> npt.NDArray[np.float64]:
         if self._center is None:
-            self._center = np.array([self.polygon.centroid.x, self.polygon.centroid.y], dtype=np.float64)
+            self._center = np.array(
+                [self.polygon.centroid.x, self.polygon.centroid.y], dtype=np.float64
+            )
         return self._center
 
     @center.setter
     def center(self, center: ArrayLike):
         self._center = validate_nd_coordinates(center, 2)
-        vertices = Rectangle._compone_rectangle(self._center, self._width, self._height, self._angle)
+        vertices = Rectangle._compone_rectangle(
+            self._center, self._width, self._height, self._angle
+        )
         super()._set_polygon(Polygon(vertices))
 
     @property
@@ -145,7 +169,12 @@ class Rectangle(Shape):
         self._center = np.array([new_cx, new_cy], dtype=np.float64)
         return self
 
-    def scale(self, x_fact: float = 1.0, y_fact: float = 1.0, ref: TransformationRef = "origin") -> Self:
+    def scale(
+        self,
+        x_fact: float = 1.0,
+        y_fact: float = 1.0,
+        ref: TransformationRef = "origin",
+    ) -> Self:
         if ref not in ("origin", "barycenter", "center"):
             raise ValueError(f"Riferimento {ref} non valido.")
 
@@ -153,7 +182,8 @@ class Rectangle(Shape):
 
         if self._angle % 90.0 != 0 and abs(x_fact - y_fact) > Eps.eps10:
             warnings.warn(
-                "Scaling non uniforme su un rettangolo ruotato: la forma risultante non sarà più un rettangolo esatto.")
+                "Scaling non uniforme su un rettangolo ruotato: la forma risultante non sarà più un rettangolo esatto."
+            )
 
         self._width *= abs(x_fact)
         self._height *= abs(y_fact)

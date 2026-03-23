@@ -33,8 +33,16 @@ class RegularPolygon(Shape):
             if n < 3:
                 raise ValueError("Un poligono deve avere almeno 3 lati.")
             side_float = float(abs(side))
-            center_array = np.zeros(2, dtype=np.float64) if center is None else validate_nd_coordinates(center, 2)
-            origin_array = np.zeros(2, dtype=np.float64) if origin is None else validate_nd_coordinates(origin, 2)
+            center_array = (
+                np.zeros(2, dtype=np.float64)
+                if center is None
+                else validate_nd_coordinates(center, 2)
+            )
+            origin_array = (
+                np.zeros(2, dtype=np.float64)
+                if origin is None
+                else validate_nd_coordinates(origin, 2)
+            )
 
         angles = np.linspace(0, 2 * np.pi, n, endpoint=False)
         r = side_float / (2 * math.sin(np.pi / n))
@@ -60,13 +68,17 @@ class RegularPolygon(Shape):
     @property
     def side(self) -> float:
         return self._side
+
     @property
     def num_of_sides(self) -> int:
         return self._n
+
     @property
     def center(self) -> ArrayLike:
         if self._center is None:
-            self._center = np.array([self.polygon.centroid.x, self.polygon.centroid.y], dtype=np.float64)
+            self._center = np.array(
+                [self.polygon.centroid.x, self.polygon.centroid.y], dtype=np.float64
+            )
         return self._center
 
     @property
@@ -79,7 +91,7 @@ class RegularPolygon(Shape):
 
     @property
     def theoretical_area(self) -> float:
-        return  self.side * self.num_of_sides * self.apothem / 2
+        return self.side * self.num_of_sides * self.apothem / 2
 
     def translate(self, x_off: float = 0.0, y_off: float = 0.0) -> Self:
         super().translate(x_off, y_off)
@@ -104,13 +116,19 @@ class RegularPolygon(Shape):
         self._center = np.array([new_cx, new_cy], dtype=np.float64)
         return self
 
-    def scale(self, x_fact: float = 1.0, y_fact: float = 1.0, ref: TransformationRef = "origin") -> Self:
+    def scale(
+        self,
+        x_fact: float = 1.0,
+        y_fact: float = 1.0,
+        ref: TransformationRef = "origin",
+    ) -> Self:
         if ref not in ("origin", "barycenter", "center"):
             raise ValueError(f"Riferimento {ref} non valido.")
 
         if abs(x_fact - y_fact) > Eps.eps10:
             warnings.warn(
-                "Scala non uniforme: il poligono non sarà più regolare! Le proprietà base verranno forzate su x_fact.")
+                "Scala non uniforme: il poligono non sarà più regolare! Le proprietà base verranno forzate su x_fact."
+            )
 
         super().scale(x_fact, y_fact, ref)
 
