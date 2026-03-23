@@ -9,10 +9,12 @@ CoordsType = Union[int, float, np.number]
 ArrayLike = Union[npt.NDArray[np.number], npt.ArrayLike, np.ndarray]
 
 __Cache = Literal["all", "bounds", "area", "length", "barycenter", "step", "closure"]
-Caches = Optional[List[__Cache], __Cache]
+Caches = Union[List[__Cache], __Cache]
 TransformationRef = Literal["origin", "center"]
 DiscretizationMethod = Optional[Literal["adaptive", "uniform", "none"]]
+ShapeType = Literal["shape", "regular-polygon", "rectangle", "circle", "spline"]
 
+FillType = Literal["grid", "linear"]
 
 @dataclass(frozen=True)
 class EpsConfig:

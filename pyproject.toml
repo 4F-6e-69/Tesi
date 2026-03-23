@@ -25,7 +25,7 @@ dependencies = [
 ]
 
 [project.scripts]
-pygarp = "pygarp.__main__:main"
+pygarp = "pygarp.cli.main:app"
 
 [project.optional-dependencies]
 dev = [
