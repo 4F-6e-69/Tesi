@@ -5,7 +5,8 @@ import typer
 
 from pygarp.cli.wizard import chiedi_configurazione_completa
 from pygarp.core.models.commons import ShapeType, FillType
-#from pygarp.core.models.validators import JobConfig
+
+# from pygarp.core.models.validators import JobConfig
 
 app = typer.Typer()
 
@@ -167,6 +168,7 @@ def main(
         jpb_config = chiedi_configurazione_completa()
     else:
         jpb_config = {}
+
 
 if __name__ == "__main__":
     app()
