@@ -7,12 +7,15 @@ from shapely import MultiPolygon
 from shapely.geometry import Polygon, LineString, MultiLineString
 from shapely.affinity import rotate
 
-from pygarp.core.workers.pocket_outline import _discretize_points
+from pygarp.core.workers.pocket_outline import discretize_points
 
 
 def linear_rect_fill_path(
     intersections: npt.NDArray[np.float64], sure_quote: float
 ) -> npt.NDArray[np.float64]:
+    if intersections.size == 0:
+        return np.asarray([], dtype=np.float64)
+
     num_segments, num_points, num_coords = intersections.shape
     if num_points != 2 or num_coords != 3:
         raise ValueError(
@@ -28,7 +31,7 @@ def linear_rect_fill_path(
     return v.reshape(-1, 3)
 
 
-def concentri_plot_fill_path(
+def concentric_plot_fill_path(
     polygons: List[Polygon],
     base_step: float,
     sure_quote: float,
@@ -46,7 +49,7 @@ def concentri_plot_fill_path(
             step_factor = poly.exterior.length / exterior_length
             current_step = base_step * step_factor * (1.2**index)
 
-            polygon_points = _discretize_points(coords, current_step)
+            polygon_points = discretize_points(coords, current_step)
 
             off = np.asarray([[0.0, 0.0, sure_quote]], dtype=np.float64)
 

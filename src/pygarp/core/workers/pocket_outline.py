@@ -74,7 +74,7 @@ def _calc_tangent(points: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     return next_p - prev_p
 
 
-def _discretize_points(points: npt.NDArray[np.float64], step: float) -> np.ndarray:
+def discretize_points(points: npt.NDArray[np.float64], step: float) -> np.ndarray:
     x = points[:, 0]
     y = points[:, 1]
 

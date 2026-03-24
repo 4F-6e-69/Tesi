@@ -1,11 +1,13 @@
+import os.path
 import warnings
-from typing import Optional, Tuple, Self
+
+from typing import Optional, Tuple, Self, Any
 from pydantic import BaseModel, Field, model_validator
 
 import numpy as np
 from numpy import typing as npt
 
-from src.pygarp.core.models.commons import ArrayLike, FillType
+from pygarp.core.models.commons import ArrayLike, FillType, Eps
 
 
 def __validate_numeric_dtype(array: npt.NDArray) -> npt.NDArray[np.float64]:
@@ -115,60 +117,235 @@ def validate_array_of_nd_coordinates(coordinates, n: int):
     return __validate_numeric_dtype(new_coord)
 
 
-class JobConfig(BaseModel):
-    # Geometria
-    shape: Optional[str] = None
-    radius: Optional[float] = Field(None, gt=0)
-    width: Optional[float] = Field(None, gt=0)
-    height: Optional[float] = Field(None, gt=0)
-    side: Optional[float] = Field(None, gt=0)
-    path_in: Optional[str] = None
+class ShapeConfig(BaseModel):
+    shape: str
+    path_point: Optional[str] = None
+    control_points: Any = None
 
-    # Orientamento
-    origin: Tuple[float, float, float] = (0, 0, 0)
-    x_axis: Tuple[float, float, float] = (1, 0, 0)
-    y_axis: Tuple[float, float, float] = (0, 1, 0)
-    z_axis: Tuple[float, float, float] = (0, 0, 1)
+    width: Optional[float] = Field(default=None, gt=Eps.eps04)
+    height: Optional[float] = Field(default=None, gt=Eps.eps04)
 
-    # Pocketing
-    outline: bool = True
-    fill: Optional[FillType] = None
-    fill_direction: float = 0.0
+    side: Optional[float] = Field(default=None, gt=Eps.eps04)
+    n: Optional[int] = Field(default=None, ge=3, le=12)
 
-    # Scarfing Concentrico
-    concentric: bool = False
-    c_offset: Optional[float] = Field(None, gt=0)
-    c_cycles: int = Field(1, ge=1)
+    radius: Optional[float] = Field(default=None, gt=Eps.eps04)
 
-    # Scarfing Ricorsivo
-    recursive: bool = False
-    r_offset: float = 0.5
-    r_cycles: int = Field(1, ge=1)
-
-    # Input / Output
-    path_out: Optional[str] = None
-    job_path: Optional[str] = None
-    job_out: Optional[str] = None
+    center: Optional[Tuple[float, float]] = (0.0, 0.0)
 
     @model_validator(mode="after")
-    def check_dimensions(self) -> Self:
-        if self.shape == "circle" and self.radius is None:
+    def validate_shape(self):
+        if self.shape in ("shape", "spline"):
+
+            if self.path_point is None:
+                raise ValueError(
+                    f"La forma '{self.shape}' richiede il percorso del file (path_point)."
+                )
+
+            if not os.path.isfile(self.path_point):
+                raise ValueError(f"Directory o file non valido: {self.path_point}")
+
+            with open(os.path.abspath(self.path_point), "r") as f:
+                file_txt_lines = f.readlines()
+
+            if len(file_txt_lines) < 3:
+                raise ValueError("Troppi pochi punti nel file di controllo.")
+
+            if self.shape == "spline" and len(file_txt_lines) > 5000:
+                raise ValueError("Interpolazione troppo costosa (più di 5000 punti).")
+
+            points = []
+            for line in file_txt_lines:
+                if not line.strip():
+                    continue
+
+                coords = line.split(",")
+                temp_coord = []
+
+                for coord in coords:
+                    try:
+                        temp_coord.append(float(coord))
+                    except ValueError:
+                        raise ValueError(
+                            "File contenente punti di controllo non valido: non tutti i valori sono numerici."
+                        )
+
+                points.append(np.asarray(temp_coord, dtype=np.float64))
+
+            self.control_points = points
+
+            self.width = None
+            self.height = None
+            self.radius = None
+            self.side = None
+            self.n = None
+            self.center = None
+
+        elif self.shape == "circle":
+            if self.radius is None:
+                raise ValueError(
+                    "Un cerchio necessita di specificare il raggio (radius)."
+                )
+
+            self.radius = None
+
+        elif self.shape == "rectangle":
+            if self.width is None:
+                raise ValueError(
+                    "Un rettangolo necessita di specificare la base (width)."
+                )
+            if self.height is None:
+                raise ValueError(
+                    "Un rettangolo necessita di specificare l'altezza (height)."
+                )
+
+            self.radius = None
+            self.side = None
+            self.n = None
+
+        elif self.shape == "regular-polygon":
+            if self.n is None:
+                raise ValueError(
+                    "Un poligono regolare necessita del numero di lati (n)."
+                )
+            if self.side is None:
+                raise ValueError(
+                    "Un poligono regolare necessita della dimensione del lato (side)."
+                )
+
+            self.side = None
+            self.n = None
+
+        else:
+            raise ValueError(f"Forma '{self.shape}' non supportata.")
+
+        if self.shape in ("circle", "rectangle", "regular-polygon"):
+            if self.center is None:
+                raise ValueError(
+                    f"La forma '{self.shape}' necessita di un centro specificato."
+                )
+
+        return
+
+
+class SpaceConfig(BaseModel):
+    space_type: str
+
+    origin: Optional[Tuple[float, float, float]] = Field(default=None)
+    x: Tuple[float, float, float] = Field(default=(1.0, 0.0, 0.0))
+    y: Tuple[float, float, float] = Field(default=(0.0, 1.0, 0.0))
+    z: Tuple[float, float, float] = Field(default=(0.0, 0.0, 1.0))
+
+    @model_validator(mode="after")
+    def validate_origin(self):
+        if (
+            self.x == self.origin
+            or self.y == self.origin
+            or self.z == self.origin
+            or self.x == self.y
+            or self.x == self.z
+            or self.y == self.z
+        ):
             raise ValueError(
-                "Il raggio (--radius) è obbligatorio per la forma 'circle'"
+                "I vettori degli assi x, y e z non possono essere identici tra loro."
+            )
+        return self
+
+
+class ScarfingConfig(BaseModel):
+    pocket_type: str
+
+    outline: bool = Field(default=True)
+    outline_style: Optional[str] = Field(default=None)
+    fill: bool = Field(default=True)
+    fill_style: Optional[str] = Field(default=None)
+    fill_dir: Optional[float] = Field(default=0.0)
+    fill_spacing: Optional[float] = Field(default=10.0, gt=Eps.eps04)
+
+    concentric: Optional[bool] = Field(default=False)
+    c_offset: Optional[float] = Field(default=None, gt=Eps.eps04)
+    c_offset_0: Optional[float] = Field(default=None, gt=Eps.eps04)
+    c_cycle: Optional[int] = Field(default=None, ge=1)
+
+    recursive: Optional[bool] = Field(default=False)
+    r_offset: Optional[float] = Field(default=None, gt=Eps.eps04)
+    r_cycle: Optional[int] = Field(default=None, gt=1.0)
+    z_off: Optional[float] = Field(default=None, gt=Eps.eps04)
+
+    @model_validator(mode="after")
+    def validate_pocket(self):
+        if not self.outline and not self.fill:
+            raise ValueError(
+                "Devi abilitare almeno una lavorazione tra 'outline' o 'fill'."
             )
 
-        if self.shape == "rectangle" and (self.width is None or self.height is None):
-            raise ValueError(
-                "Larghezza (--width) e Altezza (--height) sono obbligatorie per 'rectangle'"
-            )
+        if self.outline:
+            if self.outline_style not in ["step", "gradient"]:
+                raise ValueError(
+                    "Se outline è abilito devi specificare il tipo di contorno"
+                )
 
-        if self.shape == "regular-polygon" and self.side is None:
-            raise ValueError("Il lato (--side) è obbligatorio per 'regular-polygon'")
+        if self.fill:
+            if self.fill_style is None:
+                raise ValueError(
+                    "Se 'fill' è abilitato, devi specificare un 'fill_style'."
+                )
 
-        if self.shape in ["shape", "spline"] and self.path_in is None:
-            nome_forma = "spline" if self.shape == "spline" else "forma generica"
-            raise ValueError(
-                f"Per {nome_forma} va specificato il percorso del file (--path-in)"
-            )
+            if self.fill_style not in ["grid", "rect"]:
+                raise ValueError(
+                    f"Stile di riempimento '{self.fill_style}' non valido. Usa 'grid' o 'rect'."
+                )
+
+            if self.fill_dir is not None:
+                self.fill_dir = self.fill_dir % 360.0
+                if abs(self.fill_dir) < Eps.eps04:
+                    self.fill_dir = 0.0
+
+            if self.concentric:
+                if self.c_offset is None or self.c_cycle is None:
+                    raise ValueError(
+                        "Se 'concentric' è True, 'c_offset' e 'c_cycle' sono obbligatori."
+                    )
+            else:
+                self.c_cycle = None
+                self.c_offset = None
+
+            if self.recursive:
+                if self.r_offset is None or self.r_cycle is None:
+                    raise ValueError(
+                        "Se 'recursive' è True, 'r_offset' e 'r_cycle' sono obbligatori."
+                    )
+
+                if self.z_off is None:
+                    raise ValueError(
+                        "Le lavorazioni ricorsive richiedono uno step in Z ('z_off')."
+                    )
+
+                if self.pocket_type not in ["gradient", "step"]:
+                    raise ValueError(
+                        "Il tipo di tasca ('pocket_type') deve essere 'gradient' o 'step'."
+                    )
+            else:
+                self.r_offset = None
+                self.r_cycle = None
+                self.z_off = None
+                self.pocket_type = "None"
+
+        else:
+            self.fill_style = None
+            self.fill_dir = None
+            self.concentric = False
+            self.c_offset = None
+            self.c_cycle = None
+            self.recursive = False
+            self.r_offset = None
+            self.r_cycle = None
+            self.z_off = None
+            self.pocket_type = "None"
 
         return self
+
+
+class RobotConfig(BaseModel):
+    gamma: float = Field(default=5.0)
+
+    exit_quote: float = Field(default=50.0)
