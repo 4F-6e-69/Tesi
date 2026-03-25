@@ -8,18 +8,13 @@ from numpy import typing as npt
 CoordsType = Union[int, float, np.number]
 ArrayLike = Union[npt.NDArray[np.number], npt.ArrayLike, np.ndarray]
 
-from pygarp.core.models.shapes.circle import Circle
-from pygarp.core.models.shapes.rectangle import Rectangle
-from pygarp.core.models.shapes.regular_polygon import RegularPolygon
-from pygarp.core.models.shapes.closed_spline import ClosedSpline
-from pygarp.core.models.shapes.shape.core import Shape
 
 __Cache = Literal["all", "bounds", "area", "length", "barycenter", "step", "closure"]
 Caches = Union[List[__Cache], __Cache]
 TransformationRef = Literal["origin", "center"]
 DiscretizationMethod = Optional[Literal["adaptive", "uniform", "none"]]
 ShapeType = Literal["shape", "spline", "circle", "rectangle", "regular_polygon"]
-Shapes = Union[Shape, ClosedSpline, Circle, Rectangle, RegularPolygon]
+
 
 FillType = Literal["grid", "linear"]
 

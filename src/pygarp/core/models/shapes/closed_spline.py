@@ -92,13 +92,8 @@ class ClosedSpline(ParametricShape):
         discretization_method: DiscretizationMethod = None,
         custom_step: float | None = None,
     ) -> npt.NDArray[np.float64]:
-        discretization_method = (
-            discretization_method
-            if discretization_method is None or discretization_method == "uniform"
-            else None
-        )
         return super().discretize(
-            discretization_method=discretization_method, custom_step=custom_step
+            discretization_method="uniform", custom_step=custom_step
         )
 
     def _discretization_uniform(self):

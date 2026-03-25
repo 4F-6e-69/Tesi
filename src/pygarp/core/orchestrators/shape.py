@@ -1,6 +1,7 @@
 import numpy as np
 
-from pygarp.core.models.commons import Eps, Shapes, TransformationRef
+from pygarp.core.models.commons import Eps, TransformationRef
+from pygarp.core.models.dtypes import Shapes
 from pygarp.core.models.validators import ShapeConfig, TransformConfig
 from pygarp.core.models.shapes.shape.core import Shape
 from pygarp.core.models.shapes.circle import Circle
@@ -17,7 +18,7 @@ def generate_shape(
         if shape_config.origin is None
         else shape_config.origin
     )
-    eps = Eps.eps010 if shape_config.eps is None else shape_config.eps
+    eps = Eps.eps10 if shape_config.eps is None else shape_config.eps
 
     if shape_config.shape in ["shape", "spline"]:
         control_points = shape_config.control_points

@@ -5,7 +5,7 @@ import numpy as np
 from numpy import typing as npt
 from shapely import Point, Polygon
 
-from pygarp.core.models.commons import ArrayLike, EpsConfig, Eps, TransformationRef
+from pygarp.core.models.commons import ArrayLike, EpsConfig, Eps, TransformationRef, DiscretizationMethod
 from pygarp.core.models.shapes.parametric_interface import ParametricShape
 from pygarp.core.models.validators import validate_nd_coordinates
 
@@ -90,6 +90,53 @@ class Circle(ParametricShape):
     @property
     def t_range(self) -> tuple[float, float]:
         return 0.0, 2 * np.pi
+
+    def discretize(
+        self,
+        *,
+        discretization_method: DiscretizationMethod = None,
+        custom_step: float | None = None,
+    ) -> npt.NDArray[np.float64]:
+        return super().discretize(
+            discretization_method="uniform", custom_step=custom_step
+        )
+
+    @property
+    def sure_steps(self) -> npt.NDArray[np.float64] | None:
+        warnings.warn(f"Step sicuri non definiti per i cerchi")
+        return None
+
+    def set_step(
+            self,
+            step: float,
+            *,
+            cast: bool = True,
+            eps: EpsConfig | float = Eps.eps10,
+            warn: bool = False,
+    ):
+        step = float(abs(step))
+
+        if step < self.min_step - eps:
+            if warn:
+                warnings.warn(
+                    f"Step al di fuori dei limiti (troppo piccolo), cast a {self.min_step}"
+                )
+            self._step = self.min_step
+            return
+
+        if step > self.max_step + eps:
+            if warn:
+                warnings.warn(
+                    f"Step al di fuori dei limiti (troppo grande), cast a {self.max_step}"
+                )
+            self._step = self.max_step
+            return
+
+        self._step = step
+
+    def _calc_step_max(self) -> float:
+        max_discretization_step = self.length / 3
+        return max_discretization_step
 
     def translate(self, x_off: float = 0.0, y_off: float = 0.0) -> Self:
         super().translate(x_off, y_off)

@@ -110,7 +110,7 @@ def validate_array_of_nd_coordinates(coordinates, n: int):
         raise ValueError("Numero di coordinate non valido: deve essere un intero > 0")
 
     # Verifica che il numero di coordinate corrisponda alla dimensione 'n' richiesta
-    if new_coord.ndim != n or new_coord.shape[1] != n:
+    if new_coord.ndim != 2 or new_coord.shape[1] != n:
         raise ValueError(f"L'array di coordinate deve avere dimensione (m, {n})")
 
     # Valida il tipo di dato e applica il cast a float64
@@ -163,14 +163,15 @@ class ShapeConfig(BaseModel):
             for line in file_txt_lines:
                 try:
                     coords = [float(coord) for coord in line.split(",")]
-                    points.append(np.asarray(coords, dtype=np.float64))
+                    points.append(coords)
                 except ValueError:
                     raise ValueError(
                         "File non valido: non tutti i valori delle coordinate sono numerici."
                     )
 
-            self.control_points = points
+            self.control_points = np.array(points, dtype=np.float64)
 
+            # Pulizia sicura
             self.width = self.height = self.radius = self.side = self.n = None
 
         # --- CIRCLE ---
@@ -247,11 +248,12 @@ class SpaceConfig(BaseModel):
                     )
 
             else:
-                # Gestione di strategie inserite a mano non valide
-                warnings.warn(
-                    f"Strategia '{self.strategy}' non riconosciuta. Fallback automatico su 'DFT'."
-                )
-                self.strategy = "DFT"
+                if self.strategy != "DFT":
+                    # Gestione di strategie inserite a mano non valide
+                    warnings.warn(
+                        f"Strategia '{self.strategy}' non riconosciuta. Fallback automatico su 'DFT'."
+                    )
+                    self.strategy = "DFT"
 
             return self
 
@@ -349,7 +351,7 @@ class ScarfingConfig(BaseModel):
 
     concentric: Optional[bool] = Field(default=False)
     c_offset: Optional[float] = Field(default=None, gt=Eps.eps04)
-    c_offset_0: Optional[float] = Field(default=None, gt=Eps.eps04)
+    c_offset_0: Optional[float] = Field(default=None, gt=-Eps.eps13)
     c_cycle: Optional[int] = Field(default=None, ge=1)
 
     recursive: Optional[bool] = Field(default=False)

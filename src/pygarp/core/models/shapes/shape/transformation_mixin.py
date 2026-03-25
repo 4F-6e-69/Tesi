@@ -5,7 +5,7 @@ import numpy as np
 from numpy import typing as npt
 from shapely import affinity, Polygon, Point
 
-from src.pygarp.core.models.commons import Caches, TransformationRef
+from pygarp.core.models.commons import Caches, TransformationRef
 
 
 class TransformationRequirements(ABC):

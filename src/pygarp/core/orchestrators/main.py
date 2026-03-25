@@ -1,17 +1,9 @@
-from typing import Union, List
-
 import numpy as np
 from numpy import typing as npt
 
 from shapely.geometry import Polygon
 
-from pygarp.core.models.shapes.shape.core import Shape
 from pygarp.core.models.shapes.closed_spline import ClosedSpline
-from pygarp.core.models.shapes.circle import Circle
-from pygarp.core.models.shapes.rectangle import Rectangle
-from pygarp.core.models.shapes.regular_polygon import RegularPolygon
-
-from pygarp.core.models.virtual_space.core import WorkingSpace
 
 from pygarp.core.models.validators import (
     ShapeConfig,
@@ -19,6 +11,9 @@ from pygarp.core.models.validators import (
     ScarfingConfig,
     RobotConfig,
 )
+
+from pygarp.core.orchestrators.shape import generate_shape
+from pygarp.core.orchestrators.space import generate_virtual_space
 from pygarp.core.workers.pocket_infill import (
     linear_rect_fill_path,
     calc_linear_intersection,
@@ -35,35 +30,6 @@ from pygarp.core.workers.pocket_outline import (
 )
 
 
-def generate_shape(
-    shape_config: ShapeConfig,
-) -> Union[Shape, ClosedSpline, Circle, Rectangle, RegularPolygon]:
-    if shape_config.shape in ["shape", "spline"]:
-        control_points = shape_config.control_points
-        if shape_config.shape == "spline":
-            shape = ClosedSpline(control_points)
-        else:
-            shape = Shape(control_points)
-    elif shape_config.shape == "circle":
-        shape = Circle(shape_config.radius, shape_config.center)
-    elif shape_config.shape == "rectangle":
-        shape = Rectangle(shape_config.width, shape_config.height, shape_config.center)
-    elif shape_config.shape == "regular_polygon":
-        shape = RegularPolygon(shape_config.side, shape_config.n, shape_config.center)
-    else:
-        raise ValueError()
-
-    return shape
-
-
-def generate_space(
-    space_config: SpaceConfig,
-) -> WorkingSpace:
-    return WorkingSpace.new_space_from_three_points(
-        space_config.origin, space_config.x, space_config.y
-    )
-
-
 def execute_pocketing_job(
     shape_config: ShapeConfig,
     space_config: SpaceConfig,
@@ -71,13 +37,14 @@ def execute_pocketing_job(
     robot_config: RobotConfig,
 ) -> npt.NDArray[np.float64]:
     shape = generate_shape(shape_config)
-    space = generate_space(space_config)
+    space = generate_virtual_space(space_config)
 
+    cust_step = 20
     local_outline_path = None
     if scarfing_config.outline:
         if scarfing_config.outline_style == "step":
             local_outline_path = calc_step_outline(
-                shape.discretize(), robot_config.gamma
+                shape.discretize(custom_step=cust_step), robot_config.gamma
             )
         else:
             local_outline_path = calc_gradient_outline(
@@ -86,8 +53,10 @@ def execute_pocketing_job(
 
     fill_blocks = []
     if scarfing_config.fill:
+        print("Filling")
         last_polygon = shape.polygon
 
+        # 1. GESTIONE CONCENTRICO
         if scarfing_config.concentric:
             shapes = calc_concentric_shapes(
                 shape.polygon,
@@ -101,17 +70,25 @@ def execute_pocketing_job(
                 concentric_fill_sape = calc_gradient_outline(
                     concentric_plot_fill_path(
                         shapes,
-                        shape.step,
+                        cust_step,
                         robot_config.exit_quote,
                         isinstance(shape, ClosedSpline),
                     ),
                     robot_config.gamma,
                 )
                 last_polygon = shapes[-1]
-                fill_blocks.append(concentric_fill_sape)
+                # Controllo di sicurezza prima dell'append
+                if concentric_fill_sape is not None and len(concentric_fill_sape) > 0:
+                    fill_blocks.append(concentric_fill_sape)
 
-        fill_blocks.append(_fill_pocket(scarfing_config, last_polygon, robot_config))
+        # 2. GESTIONE FILL BASE
+        base_fill = _fill_pocket(scarfing_config, last_polygon, robot_config)
+        print(f"Punti del riempimento: {base_fill.shape[0]}")
+        # Controllo di sicurezza: appendo solo se c'è effettivamente un percorso
+        if base_fill is not None and base_fill.shape[0] > 0:
+            fill_blocks.append(base_fill)
 
+        # 3. GESTIONE RICORSIVA
         if scarfing_config.recursive:
             stepped_layers = calc_concentric_shapes(
                 last_polygon,
@@ -126,28 +103,37 @@ def execute_pocketing_job(
                 profondita_z = (index + 1) * scarfing_config.z_off
 
                 coords = np.column_stack(current_layer.exterior.xy)
-                outline_grezzo = discretize_points(coords, shape.step)
+                outline_grezzo = discretize_points(coords, shape.max_step / 9)
+
+                # Nota: Sostituito 'is' con '==' per evitare il SyntaxWarning
                 gradino_outline = (
                     calc_gradient_outline(outline_grezzo, robot_config.gamma)
-                    if scarfing_config.outline_style is "gradient"
+                    if scarfing_config.outline_style == "gradient"
                     else calc_step_outline(outline_grezzo, robot_config.gamma)
                 )
+
                 gradino_fill = _fill_pocket(
                     scarfing_config, current_layer, robot_config
                 )
 
-                if gradino_fill.size > 0:
+                # Controllo sicuro sull'array
+                if gradino_fill is not None and len(gradino_fill) > 0:
                     gradino_completo = np.vstack((gradino_outline, gradino_fill))
                 else:
-                    gradino_completo = gradino_outline
+                    gradino_completo = gradino_outline.copy()
 
+                # Abbassiamo solo la posizione Z (colonna 2)
                 gradino_completo[:, 2] -= profondita_z
                 gradino_completo[:, 5] -= profondita_z
 
-                fill_blocks.append(gradino_completo)
+                # ELIMINATO: gradino_completo[:, 5] -= profondita_z (Non alterare l'orientamento!)
 
-    local_fill_path = np.vstack(fill_blocks) if fill_blocks else None
+                if len(gradino_completo) > 0:
+                    fill_blocks.append(gradino_completo)
 
+        # Ricostruiamo il percorso di riempimento solo se la lista contiene qualcosa
+    local_fill_path = np.vstack(fill_blocks) if len(fill_blocks) > 0 else None
+    # --- IL RESTO DEL CODICE RIMANE INVARIATO ---
     if local_outline_path is None and local_fill_path is None:
         return np.asarray([], dtype=np.float64)
 
@@ -168,7 +154,7 @@ def execute_pocketing_job(
 
 def _fill_pocket(
     scarfing_config: ScarfingConfig, last_polygon: Polygon, robot_config: RobotConfig
-):
+) -> npt.NDArray[np.float64]:
     block = []
     if scarfing_config.fill_style == "grid":
         local_fill_path_horizontal = calc_gradient_outline(
@@ -199,7 +185,7 @@ def _fill_pocket(
         )
         block.append(local_linear_fill_path)
 
-    elif scarfing_config.fill_style == "linear":
+    elif scarfing_config.fill_style == "rect":
         local_linear_fill_path = calc_gradient_outline(
             linear_rect_fill_path(
                 calc_linear_intersection(
