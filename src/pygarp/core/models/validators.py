@@ -1,13 +1,13 @@
 import os.path
 import warnings
 
-from typing import Optional, Tuple, Any
+from typing import Optional, Tuple, Any, cast
 from pydantic import BaseModel, Field, model_validator
 
 import numpy as np
 from numpy import typing as npt
 
-from pygarp.core.models.commons import ArrayLike, Eps
+from pygarp.core.models.commons import ArrayLike, Eps, TransformationRef, ShapeType
 
 
 def __validate_numeric_dtype(array: npt.NDArray) -> npt.NDArray[np.float64]:
@@ -45,7 +45,7 @@ def validate_nd_coordinates(coordinates: ArrayLike, n: int) -> npt.NDArray[np.fl
     Valida e formatta una singola coordinata in uno spazio n-dimensionale.
 
     Args:
-        coordinates (array_like): I valori delle coordinate (es. Lista, tupla o array NumPy).
+        coordinates (array_like): I valori delle coordinate (es. Lista, tuple o array NumPy).
         n (int): La dimensionalità attesa per la coordinata (es. 2 per 2D, 3 per 3D).
 
     Returns:
@@ -118,113 +118,89 @@ def validate_array_of_nd_coordinates(coordinates, n: int):
 
 
 class ShapeConfig(BaseModel):
-    shape: str
+    shape: ShapeType
+
     path_point: Optional[str] = None
     control_points: Any = None
+    assume_sort: bool = False
 
     width: Optional[float] = Field(default=None, gt=Eps.eps04)
     height: Optional[float] = Field(default=None, gt=Eps.eps04)
-
     side: Optional[float] = Field(default=None, gt=Eps.eps04)
     n: Optional[int] = Field(default=None, ge=3, le=12)
-
     radius: Optional[float] = Field(default=None, gt=Eps.eps04)
 
-    center: Optional[Tuple[float, float]] = (0.0, 0.0)
+    center: Tuple[float, float] = Field(default=(0.0, 0.0))
+    origin: Tuple[float, float] = Field(default=(0.0, 0.0))
+    eps: Optional[float] = Field(default=None, gt=Eps.eps14)
 
     @model_validator(mode="after")
     def validate_shape(self):
         if self.shape in ("shape", "spline"):
-
             if self.path_point is None:
                 raise ValueError(
                     f"La forma '{self.shape}' richiede il percorso del file (path_point)."
                 )
 
             if not os.path.isfile(self.path_point):
-                raise ValueError(f"Directory o file non valido: {self.path_point}")
+                raise ValueError(f"File o directory non trovato: {self.path_point}")
 
+            # Legge il file ignorando direttamente le righe vuote o contenenti solo spazi
             with open(os.path.abspath(self.path_point), "r") as f:
-                file_txt_lines = f.readlines()
+                file_txt_lines = [line.strip() for line in f if line.strip()]
 
             if len(file_txt_lines) < 3:
-                raise ValueError("Troppi pochi punti nel file di controllo.")
+                raise ValueError(
+                    "Troppi pochi punti nel file di controllo (minimo richiesto: 3)."
+                )
 
             if self.shape == "spline" and len(file_txt_lines) > 5000:
-                raise ValueError("Interpolazione troppo costosa (più di 5000 punti).")
+                raise ValueError(
+                    "Interpolazione troppo costosa (superato il limite di 5000 punti)."
+                )
 
             points = []
             for line in file_txt_lines:
-                if not line.strip():
-                    continue
-
-                coords = line.split(",")
-                temp_coord = []
-
-                for coord in coords:
-                    try:
-                        temp_coord.append(float(coord))
-                    except ValueError:
-                        raise ValueError(
-                            "File contenente punti di controllo non valido: non tutti i valori sono numerici."
-                        )
-
-                points.append(np.asarray(temp_coord, dtype=np.float64))
+                try:
+                    coords = [float(coord) for coord in line.split(",")]
+                    points.append(np.asarray(coords, dtype=np.float64))
+                except ValueError:
+                    raise ValueError(
+                        "File non valido: non tutti i valori delle coordinate sono numerici."
+                    )
 
             self.control_points = points
 
-            self.width = None
-            self.height = None
-            self.radius = None
-            self.side = None
-            self.n = None
-            self.center = None
+            self.width = self.height = self.radius = self.side = self.n = None
 
+        # --- CIRCLE ---
         elif self.shape == "circle":
             if self.radius is None:
                 raise ValueError(
                     "Un cerchio necessita di specificare il raggio (radius)."
                 )
+            # Pulizia sicura
+            self.width = self.height = self.side = self.n = None
 
-            self.radius = None
-
+        # --- RECTANGLE ---
         elif self.shape == "rectangle":
-            if self.width is None:
+            if self.width is None or self.height is None:
                 raise ValueError(
-                    "Un rettangolo necessita di specificare la base (width)."
+                    "Un rettangolo necessita di specificare sia la base (width) che l'altezza (height)."
                 )
-            if self.height is None:
+            # Pulizia sicura
+            self.radius = self.side = self.n = None
+
+        # --- REGULAR POLYGON ---
+        elif self.shape == "regular_polygon":
+            if self.n is None or self.side is None:
                 raise ValueError(
-                    "Un rettangolo necessita di specificare l'altezza (height)."
+                    "Un poligono regolare necessita del numero di lati (n) e della dimensione del lato (side)."
                 )
+            # Pulizia sicura
+            self.radius = self.width = self.height = None
 
-            self.radius = None
-            self.side = None
-            self.n = None
-
-        elif self.shape == "regular-polygon":
-            if self.n is None:
-                raise ValueError(
-                    "Un poligono regolare necessita del numero di lati (n)."
-                )
-            if self.side is None:
-                raise ValueError(
-                    "Un poligono regolare necessita della dimensione del lato (side)."
-                )
-
-            self.side = None
-            self.n = None
-
-        else:
-            raise ValueError(f"Forma '{self.shape}' non supportata.")
-
-        if self.shape in ("circle", "rectangle", "regular-polygon"):
-            if self.center is None:
-                raise ValueError(
-                    f"La forma '{self.shape}' necessita di un centro specificato."
-                )
-
-        return
+        return self
 
 
 class SpaceConfig(BaseModel):
@@ -322,6 +298,36 @@ class SpaceConfig(BaseModel):
             raise ValueError(
                 "Conflitto geometrico: i vettori o i punti chiave usati per generare la strategia non possono coincidere tra loro."
             )
+
+
+class TransformConfig(BaseModel):
+    translation: Optional[Tuple[float, float]] = Field(default=None)
+    rotation: Optional[float] = Field(default=None)
+    scale: Optional[Tuple[float, float]] = Field(default=None)
+
+    ref: Optional[TransformationRef] = Field(default=None)
+
+    @model_validator(mode="after")
+    def validate_transformation(self):
+        # Evita scale nulle o negative (devono essere maggiori della tolleranza)
+        if self.scale is not None:
+            if self.scale[0] < Eps.eps04 or self.scale[1] < Eps.eps04:
+                raise ValueError(
+                    "I fattori di scala (x, y) devono essere positivi e superiori alla tolleranza."
+                )
+
+        # Normalizza la rotazione limitandola all'angolo giro (es. 370 -> 10, -10 -> 350)
+        if self.rotation is not None:
+            self.rotation = self.rotation % 360.0
+
+        if (self.rotation is not None or self.scale is not None) and self.ref is None:
+            warnings.warn(
+                "Punto di riferimento (ref) non specificato per la trasformazione. "
+                "Verrà applicato il fallback automatico su 'origin'."
+            )
+            self.ref = cast(TransformationRef, "origin")
+
+        return self
 
 
 class EditConfig(BaseModel):
