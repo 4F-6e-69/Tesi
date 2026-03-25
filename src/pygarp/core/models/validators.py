@@ -1,13 +1,13 @@
 import os.path
 import warnings
 
-from typing import Optional, Tuple, Self, Any
+from typing import Optional, Tuple, Any
 from pydantic import BaseModel, Field, model_validator
 
 import numpy as np
 from numpy import typing as npt
 
-from pygarp.core.models.commons import ArrayLike, FillType, Eps
+from pygarp.core.models.commons import ArrayLike, Eps
 
 
 def __validate_numeric_dtype(array: npt.NDArray) -> npt.NDArray[np.float64]:
@@ -229,26 +229,106 @@ class ShapeConfig(BaseModel):
 
 class SpaceConfig(BaseModel):
     space_type: str
+    strategy: Optional[str] = Field(default=None)
 
+    # Vettori di base (mantengono i default standard spaziali)
+    x: Optional[Tuple[float, float, float]] = Field(default=(1.0, 0.0, 0.0))
+    y: Optional[Tuple[float, float, float]] = Field(default=(0.0, 1.0, 0.0))
+    z: Optional[Tuple[float, float, float]] = Field(default=(0.0, 0.0, 1.0))
+
+    # Origine e punti di riferimento.
+    # Default a None per permettere controlli condizionali affidabili.
     origin: Optional[Tuple[float, float, float]] = Field(default=None)
-    x: Tuple[float, float, float] = Field(default=(1.0, 0.0, 0.0))
-    y: Tuple[float, float, float] = Field(default=(0.0, 1.0, 0.0))
-    z: Tuple[float, float, float] = Field(default=(0.0, 0.0, 1.0))
+    x_hint: Optional[Tuple[float, float, float]] = Field(default=None)
+    y_hint: Optional[Tuple[float, float, float]] = Field(default=None)
+    p_hint: Optional[Tuple[float, float, float]] = Field(default=None)
 
     @model_validator(mode="after")
-    def validate_origin(self):
-        if (
-            self.x == self.origin
-            or self.y == self.origin
-            or self.z == self.origin
-            or self.x == self.y
-            or self.x == self.z
-            or self.y == self.z
-        ):
+    def determine_strategy(self):
+        # Se la strategia è stata passata esplicitamente, controlliamo che abbia i requisiti
+        if self.strategy is not None:
+            if self.strategy == "OPP":
+                if self.origin is None or self.x_hint is None or self.p_hint is None:
+                    raise ValueError(
+                        "Dati mancanti: la strategia 'OPP' richiede 'origin', 'x_hint' e 'p_hint'."
+                    )
+
+            elif self.strategy == "ONC":
+                if self.origin is None or self.x_hint is None or self.z is None:
+                    raise ValueError(
+                        "Dati mancanti: la strategia 'ONC' richiede 'origin', 'x_hint' e 'z'."
+                    )
+
+            elif self.strategy == "XYP":
+                if (
+                    self.x is None
+                    or self.x_hint is None
+                    or self.y is None
+                    or self.y_hint is None
+                ):
+                    raise ValueError(
+                        "Dati mancanti: la strategia 'XYP' richiede 'x', 'x_hint', 'y' e 'y_hint'."
+                    )
+
+            else:
+                # Gestione di strategie inserite a mano non valide
+                warnings.warn(
+                    f"Strategia '{self.strategy}' non riconosciuta. Fallback automatico su 'DFT'."
+                )
+                self.strategy = "DFT"
+
+            return self
+
+        # 1. Strategie basate sull'Origine (ONC e OPP)
+        if self.origin is not None and self.x_hint is not None:
+            # OPP ha la priorità se viene passato un punto specifico (p_hint)
+            if self.p_hint is not None:
+                self.strategy = "OPP"
+                self.validate_unique_vectors(self.origin, self.p_hint, self.x_hint)
+
+            # Fallback su ONC usando l'asse z (che ha un valore di default)
+            elif self.z is not None:
+                self.strategy = "ONC"
+                self.validate_unique_vectors(self.origin, self.z, self.x_hint)
+            else:
+                raise ValueError(
+                    "Dati incompleti: per definire l'origine è richiesto anche 'p_hint' (OPP) o 'z' (ONC)."
+                )
+
+        # 2. Strategia basata sugli assi e i relativi hint (XYP)
+        elif all(v is not None for v in [self.x, self.x_hint, self.y, self.y_hint]):
+            self.strategy = "XYP"
+            self.validate_unique_vectors(self.x, self.y, self.x_hint, self.y_hint)
+
+        # 3. Nessun match possibile
+        else:
             raise ValueError(
-                "I vettori degli assi x, y e z non possono essere identici tra loro."
+                "Impossibile dedurre la strategia spaziale: la combinazione dei vettori/punti forniti non è sufficiente."
             )
+
         return self
+
+    @staticmethod
+    def validate_unique_vectors(*vectors):
+        """
+        Validazione iniziale blanda: si assicura semplicemente che non ci siano
+        vettori o punti di riferimento esattamente coincidenti.
+        """
+        # Filtriamo eventuali valori None passati per errore
+        valid_vecs = [v for v in vectors if v is not None]
+
+        # Un Set rimuove i duplicati. Se la lunghezza scende, ci sono vettori identici.
+        if len(set(valid_vecs)) < len(valid_vecs):
+            raise ValueError(
+                "Conflitto geometrico: i vettori o i punti chiave usati per generare la strategia non possono coincidere tra loro."
+            )
+
+
+class EditConfig(BaseModel):
+    x: bool = False
+    y: bool = False
+    z: bool = False
+    x2y: bool = False
 
 
 class ScarfingConfig(BaseModel):
