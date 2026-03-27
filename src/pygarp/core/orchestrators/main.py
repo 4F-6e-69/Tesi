@@ -105,18 +105,19 @@ def execute_pocketing_job(
                 coords = np.column_stack(current_layer.exterior.xy)
                 outline_grezzo = discretize_points(coords, shape.max_step / 9)
 
-                # Nota: Sostituito 'is' con '==' per evitare il SyntaxWarning
-                gradino_outline = (
+                grad_outline = (
                     calc_gradient_outline(outline_grezzo, robot_config.gamma)
                     if scarfing_config.outline_style == "gradient"
                     else calc_step_outline(outline_grezzo, robot_config.gamma)
                 )
 
+                off = np.asarray([0, 0, robot_config.exit_quote, 0, 0, robot_config.exit_quote], dtype=np.float64)
+                gradino_outline = np.vstack((grad_outline[0] + off, grad_outline, grad_outline[-1] + off))
+
                 gradino_fill = _fill_pocket(
                     scarfing_config, current_layer, robot_config
                 )
 
-                # Controllo sicuro sull'array
                 if gradino_fill is not None and len(gradino_fill) > 0:
                     gradino_completo = np.vstack((gradino_outline, gradino_fill))
                 else:

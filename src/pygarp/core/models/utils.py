@@ -270,7 +270,7 @@ def sort_by_tolerance_2d_array(
     # Verifica della dimensione del array
     if points.ndim != 2 or points.shape[1] != 2:
         raise ValueError(f"Attesi punti (N, 2), ricevuto {points.shape}")
-    if points.dtype != np.number:
+    if points.dtype != np.float64 and points.dtype != np.number:
         raise ValueError(f"Data type dell'array non valido, ricevuto {points.dtype}")
 
     # Calcolo angoli polari per ogni vertice

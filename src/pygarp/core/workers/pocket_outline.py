@@ -10,10 +10,10 @@ from pygarp.core.models.commons import ArrayLike
 def calc_step_outline(points: npt.NDArray[np.float64], gamma: float):
     path, dim = _init_path(points)
     tan = _calc_tangent(path)
-
+    gamma_rad = np.deg2rad(gamma)
     alpha = np.arctan2(tan[:, 1], tan[:, 0])
     ca, sa = np.cos(alpha), np.sin(alpha)
-    cg, sg = np.cos(gamma), np.sin(gamma)
+    cg, sg = np.cos(gamma_rad), np.sin(gamma_rad)
 
     R = np.zeros((dim, 3, 3))
     R[:, 0, 0] = ca
@@ -35,12 +35,12 @@ def calc_gradient_outline(points: ArrayLike, gamma: float):
 
     tan_norm = np.linalg.norm(tan, axis=1, keepdims=True)
     tan_norm[tan_norm == 0] = 1e-10
-
-    new_tangent_xy = (-tan / tan_norm) * np.sin(gamma)
+    gamma_rad = np.deg2rad(gamma)
+    new_tangent_xy = (-tan / tan_norm) * np.sin(gamma_rad)
 
     v = np.zeros((dim, 3))
     v[:, :2] = -new_tangent_xy
-    v[:, 2] = np.cos(gamma)
+    v[:, 2] = np.cos(gamma_rad)
 
     return np.hstack((path, path + v))
 

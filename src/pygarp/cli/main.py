@@ -8,41 +8,45 @@ import numpy as np
 from pygarp.core.models.validators import ShapeConfig, SpaceConfig, ScarfingConfig, RobotConfig
 from pygarp.core.orchestrators.main import execute_pocketing_job
 from pygarp.core.workers.writer import pocket_writing
-
+'''
+x: 800-1100
+y: -50-180
+'''
 spline_dict = {
-    "shape": "rectangle",
-    "width": 150.0,
-    "height": 100.0,
-    "center": [0.0, 0.0],
-    #"path_point": r"C:\Users\angel\PycharmProjects\PyGARP\tests\files\cpoints_01"
+    "shape": "spline",
+    "path_point": r"C:\Users\angel\PycharmProjects\PyGARP\tests\files\cpoints_01",
 }
 space_dict = {
     "space_type": "default",
-    "strategy": "DFT"
+    "strategy": "DFT",
+    "origin": [1200, 235, 450],
+    "x_hint": [-2, -0.55, -1],
+    "z": [0, 0, 0.7],
 }
 scarf_dict = {
     "pocket_type": "gradient",
 
     "outline": True,
-    "outline_style": "step",
+    "outline_style": "gradient",
 
     "fill": True,
-    "fill_style": "rect",
-    "fill_dir": 10.0,
-    "fill_spacing": 20.0,
+    "fill_style": "grid",
+    "fill_dir": 50.0,
+    "fill_spacing": 7.0,
 
     "concentric": False,
-    "c_offset": 12.0,
-    "c_cycle": 3,
+    "c_offset": 7.0,
+    "c_cycle": 5,
     "c_offset_0": 0,
 
+
     "recursive": True,
-    "r_offset": 20,
-    "r_cycle": 2,
-    "z_off": 10
+    "r_offset": 5.0,
+    "r_cycle": 4,
+    "z_off": 1
 }
 robot_dict = {
-    "gamme": 5,
+    "gamma": -5.0,
     "exit_quote": 50
 }
 
@@ -119,7 +123,7 @@ def plot_positions_and_orientations(filename: str, arrow_length: float = 5.0):
 @app.command("calc")
 def main():
     result = execute_pocketing_job(shape_config, space_config, scarf_config, robot_config)
-    filename = str(Path(__file__).resolve().parent.parent.parent.parent / "tests/files/test_01.csv")
+    filename = str(Path(__file__).resolve().parent.parent.parent.parent / "tests/files/test_08.csv")
     pocket_writing(result, filename)
     plot_positions_and_orientations(filename)
 

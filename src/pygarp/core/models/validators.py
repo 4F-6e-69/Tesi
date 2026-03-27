@@ -434,6 +434,5 @@ class ScarfingConfig(BaseModel):
 
 
 class RobotConfig(BaseModel):
-    gamma: float = Field(default=5.0)
-
-    exit_quote: float = Field(default=50.0)
+    gamma: float
+    exit_quote: float

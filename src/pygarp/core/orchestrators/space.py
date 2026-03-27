@@ -20,13 +20,13 @@ def generate_virtual_space(space_config: SpaceConfig) -> WorkingSpace:
     if space_config.strategy == "OPP":
         return WorkingSpace.new_space_from_three_points(
             space_config.origin,
-            SpaceConfig.x_hint,
-            SpaceConfig.p_hint,
-        )
+            space_config.x_hint,
+            space_config.p_hint,
+        ).invert_z()
     elif space_config.strategy == "ONC":
         return WorkingSpace.new_space_from_normal(
             space_config.origin,
-            SpaceConfig.x_hint,
+            space_config.x_hint,
             space_config.z,
         )
     elif space_config.strategy == "XYP":
