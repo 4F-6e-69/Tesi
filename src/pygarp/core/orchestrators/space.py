@@ -17,26 +17,26 @@ def generate_default_space():
 
 
 def generate_virtual_space(space_config: SpaceConfig) -> WorkingSpace:
-    if space_config.strategy == "OPP":
+    if space_config.space_strategy == "OPP":
         return WorkingSpace.new_space_from_three_points(
             space_config.origin,
             space_config.x_hint,
             space_config.p_hint,
         ).invert_z()
-    elif space_config.strategy == "ONC":
+    elif space_config.space_strategy == "ONC":
         return WorkingSpace.new_space_from_normal(
             space_config.origin,
             space_config.x_hint,
-            space_config.z,
+            space_config.z_axis,
         )
-    elif space_config.strategy == "XYP":
+    elif space_config.space_strategy == "XYP":
         return WorkingSpace.new_space_from_two_straight(
-            space_config.x,
+            space_config.x_axis,
             space_config.x_hint,
-            space_config.y,
+            space_config.y_axis,
             space_config.y_hint,
         )
-    elif space_config.strategy == "DFT":
+    elif space_config.space_strategy == "DFT":
         return generate_default_space()
 
     else:

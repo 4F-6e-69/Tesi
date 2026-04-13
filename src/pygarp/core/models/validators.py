@@ -118,16 +118,16 @@ def validate_array_of_nd_coordinates(coordinates, n: int):
 
 
 class ShapeConfig(BaseModel):
-    shape: ShapeType
+    shape_type: ShapeType
 
-    path_point: Optional[str] = None
+    control_points_path: Optional[str] = None
     control_points: Any = None
     assume_sort: bool = False
 
     width: Optional[float] = Field(default=None, gt=Eps.eps04)
     height: Optional[float] = Field(default=None, gt=Eps.eps04)
-    side: Optional[float] = Field(default=None, gt=Eps.eps04)
-    n: Optional[int] = Field(default=None, ge=3, le=12)
+    side_length: Optional[float] = Field(default=None, gt=Eps.eps04)
+    n_sides: Optional[int] = Field(default=None, ge=3, le=12)
     radius: Optional[float] = Field(default=None, gt=Eps.eps04)
 
     center: Tuple[float, float] = Field(default=(0.0, 0.0))
@@ -136,17 +136,19 @@ class ShapeConfig(BaseModel):
 
     @model_validator(mode="after")
     def validate_shape(self):
-        if self.shape in ("shape", "spline"):
-            if self.path_point is None:
+        if self.shape_type in ("shape", "spline"):
+            if self.control_points_path is None:
                 raise ValueError(
-                    f"La forma '{self.shape}' richiede il percorso del file (path_point)."
+                    f"La forma '{self.shape_type}' richiede il percorso del file (path_point)."
                 )
 
-            if not os.path.isfile(self.path_point):
-                raise ValueError(f"File o directory non trovato: {self.path_point}")
+            if not os.path.isfile(self.control_points_path):
+                raise ValueError(
+                    f"File o directory non trovato: {self.control_points_path}"
+                )
 
             # Legge il file ignorando direttamente le righe vuote o contenenti solo spazi
-            with open(os.path.abspath(self.path_point), "r") as f:
+            with open(os.path.abspath(self.control_points_path), "r") as f:
                 file_txt_lines = [line.strip() for line in f if line.strip()]
 
             if len(file_txt_lines) < 3:
@@ -154,7 +156,7 @@ class ShapeConfig(BaseModel):
                     "Troppi pochi punti nel file di controllo (minimo richiesto: 3)."
                 )
 
-            if self.shape == "spline" and len(file_txt_lines) > 5000:
+            if self.shape_type == "spline" and len(file_txt_lines) > 5000:
                 raise ValueError(
                     "Interpolazione troppo costosa (superato il limite di 5000 punti)."
                 )
@@ -172,29 +174,31 @@ class ShapeConfig(BaseModel):
             self.control_points = np.array(points, dtype=np.float64)
 
             # Pulizia sicura
-            self.width = self.height = self.radius = self.side = self.n = None
+            self.width = self.height = self.radius = self.side_length = self.n_sides = (
+                None
+            )
 
         # --- CIRCLE ---
-        elif self.shape == "circle":
+        elif self.shape_type == "circle":
             if self.radius is None:
                 raise ValueError(
                     "Un cerchio necessita di specificare il raggio (radius)."
                 )
             # Pulizia sicura
-            self.width = self.height = self.side = self.n = None
+            self.width = self.height = self.side_length = self.n_sides = None
 
         # --- RECTANGLE ---
-        elif self.shape == "rectangle":
+        elif self.shape_type == "rectangle":
             if self.width is None or self.height is None:
                 raise ValueError(
                     "Un rettangolo necessita di specificare sia la base (width) che l'altezza (height)."
                 )
             # Pulizia sicura
-            self.radius = self.side = self.n = None
+            self.radius = self.side_length = self.n_sides = None
 
         # --- REGULAR POLYGON ---
-        elif self.shape == "regular_polygon":
-            if self.n is None or self.side is None:
+        elif self.shape_type == "regular_polygon":
+            if self.n_sides is None or self.side_length is None:
                 raise ValueError(
                     "Un poligono regolare necessita del numero di lati (n) e della dimensione del lato (side)."
                 )
@@ -205,13 +209,12 @@ class ShapeConfig(BaseModel):
 
 
 class SpaceConfig(BaseModel):
-    space_type: str
-    strategy: Optional[str] = Field(default=None)
+    space_strategy: Optional[str] = Field(default=None)
 
     # Vettori di base (mantengono i default standard spaziali)
-    x: Optional[Tuple[float, float, float]] = Field(default=(1.0, 0.0, 0.0))
-    y: Optional[Tuple[float, float, float]] = Field(default=(0.0, 1.0, 0.0))
-    z: Optional[Tuple[float, float, float]] = Field(default=(0.0, 0.0, 1.0))
+    x_axis: Optional[Tuple[float, float, float]] = Field(default=(1.0, 0.0, 0.0))
+    y_axis: Optional[Tuple[float, float, float]] = Field(default=(0.0, 1.0, 0.0))
+    z_axis: Optional[Tuple[float, float, float]] = Field(default=(0.0, 0.0, 1.0))
 
     # Origine e punti di riferimento.
     # Default a None per permettere controlli condizionali affidabili.
@@ -223,24 +226,24 @@ class SpaceConfig(BaseModel):
     @model_validator(mode="after")
     def determine_strategy(self):
         # Se la strategia è stata passata esplicitamente, controlliamo che abbia i requisiti
-        if self.strategy is not None:
-            if self.strategy == "OPP":
+        if self.space_strategy is not None:
+            if self.space_strategy == "OPP":
                 if self.origin is None or self.x_hint is None or self.p_hint is None:
                     raise ValueError(
                         "Dati mancanti: la strategia 'OPP' richiede 'origin', 'x_hint' e 'p_hint'."
                     )
 
-            elif self.strategy == "ONC":
-                if self.origin is None or self.x_hint is None or self.z is None:
+            elif self.space_strategy == "ONC":
+                if self.origin is None or self.x_hint is None or self.z_axis is None:
                     raise ValueError(
                         "Dati mancanti: la strategia 'ONC' richiede 'origin', 'x_hint' e 'z'."
                     )
 
-            elif self.strategy == "XYP":
+            elif self.space_strategy == "XYP":
                 if (
-                    self.x is None
+                    self.x_axis is None
                     or self.x_hint is None
-                    or self.y is None
+                    or self.y_axis is None
                     or self.y_hint is None
                 ):
                     raise ValueError(
@@ -248,12 +251,12 @@ class SpaceConfig(BaseModel):
                     )
 
             else:
-                if self.strategy != "DFT":
+                if self.space_strategy != "DFT":
                     # Gestione di strategie inserite a mano non valide
                     warnings.warn(
-                        f"Strategia '{self.strategy}' non riconosciuta. Fallback automatico su 'DFT'."
+                        f"Strategia '{self.space_strategy}' non riconosciuta. Fallback automatico su 'DFT'."
                     )
-                    self.strategy = "DFT"
+                    self.space_strategy = "DFT"
 
             return self
 
@@ -261,22 +264,26 @@ class SpaceConfig(BaseModel):
         if self.origin is not None and self.x_hint is not None:
             # OPP ha la priorità se viene passato un punto specifico (p_hint)
             if self.p_hint is not None:
-                self.strategy = "OPP"
+                self.space_strategy = "OPP"
                 self.validate_unique_vectors(self.origin, self.p_hint, self.x_hint)
 
             # Fallback su ONC usando l'asse z (che ha un valore di default)
-            elif self.z is not None:
-                self.strategy = "ONC"
-                self.validate_unique_vectors(self.origin, self.z, self.x_hint)
+            elif self.z_axis is not None:
+                self.space_strategy = "ONC"
+                self.validate_unique_vectors(self.origin, self.z_axis, self.x_hint)
             else:
                 raise ValueError(
                     "Dati incompleti: per definire l'origine è richiesto anche 'p_hint' (OPP) o 'z' (ONC)."
                 )
 
         # 2. Strategia basata sugli assi e i relativi hint (XYP)
-        elif all(v is not None for v in [self.x, self.x_hint, self.y, self.y_hint]):
-            self.strategy = "XYP"
-            self.validate_unique_vectors(self.x, self.y, self.x_hint, self.y_hint)
+        elif all(
+            v is not None for v in [self.x_axis, self.x_hint, self.y_axis, self.y_hint]
+        ):
+            self.space_strategy = "XYP"
+            self.validate_unique_vectors(
+                self.x_axis, self.y_axis, self.x_hint, self.y_hint
+            )
 
         # 3. Nessun match possibile
         else:
@@ -340,99 +347,97 @@ class EditConfig(BaseModel):
 
 
 class ScarfingConfig(BaseModel):
-    pocket_type: str
+    apply_outline: bool = Field(default=True)
+    outline_mode: Optional[str] = Field(default=None)
+    apply_infill: bool = Field(default=True)
+    infill_mode: Optional[str] = Field(default=None)
+    infill_dir: Optional[float] = Field(default=0.0)
+    infill_spacing: Optional[float] = Field(default=10.0, gt=Eps.eps04)
 
-    outline: bool = Field(default=True)
-    outline_style: Optional[str] = Field(default=None)
-    fill: bool = Field(default=True)
-    fill_style: Optional[str] = Field(default=None)
-    fill_dir: Optional[float] = Field(default=0.0)
-    fill_spacing: Optional[float] = Field(default=10.0, gt=Eps.eps04)
+    apply_concentric: Optional[bool] = Field(default=False)
+    concentric_spacing: Optional[float] = Field(default=None, gt=Eps.eps04)
+    concentric_initial_offset: Optional[float] = Field(default=None, gt=-Eps.eps13)
+    concentric_cycles: Optional[int] = Field(default=None, ge=1)
 
-    concentric: Optional[bool] = Field(default=False)
-    c_offset: Optional[float] = Field(default=None, gt=Eps.eps04)
-    c_offset_0: Optional[float] = Field(default=None, gt=-Eps.eps13)
-    c_cycle: Optional[int] = Field(default=None, ge=1)
-
-    recursive: Optional[bool] = Field(default=False)
-    r_offset: Optional[float] = Field(default=None, gt=Eps.eps04)
-    r_cycle: Optional[int] = Field(default=None, gt=1.0)
-    z_off: Optional[float] = Field(default=None, gt=Eps.eps04)
+    apply_recursive: Optional[bool] = Field(default=False)
+    pocket_offset: Optional[float] = Field(default=None, gt=Eps.eps04)
+    pocket_cycles: Optional[int] = Field(default=None, gt=1.0)
+    z_step: Optional[float] = Field(default=None, gt=Eps.eps04)
 
     @model_validator(mode="after")
     def validate_pocket(self):
-        if not self.outline and not self.fill:
+        if not self.apply_outline and not self.apply_infill:
             raise ValueError(
                 "Devi abilitare almeno una lavorazione tra 'outline' o 'fill'."
             )
 
-        if self.outline:
-            if self.outline_style not in ["step", "gradient"]:
+        if self.apply_outline:
+            if self.outline_mode not in ["step", "gradient"]:
                 raise ValueError(
                     "Se outline è abilito devi specificare il tipo di contorno"
                 )
 
-        if self.fill:
-            if self.fill_style is None:
+        if self.apply_infill:
+            if self.infill_mode is None:
                 raise ValueError(
                     "Se 'fill' è abilitato, devi specificare un 'fill_style'."
                 )
 
-            if self.fill_style not in ["grid", "rect"]:
+            if self.infill_mode not in ["grid", "rect"]:
                 raise ValueError(
-                    f"Stile di riempimento '{self.fill_style}' non valido. Usa 'grid' o 'rect'."
+                    f"Stile di riempimento '{self.infill_mode}' non valido. Usa 'grid' o 'rect'."
                 )
 
-            if self.fill_dir is not None:
-                self.fill_dir = self.fill_dir % 360.0
-                if abs(self.fill_dir) < Eps.eps04:
-                    self.fill_dir = 0.0
+            if self.infill_dir is not None:
+                self.infill_dir = self.infill_dir % 360.0
+                if abs(self.infill_dir) < Eps.eps04:
+                    self.infill_dir = 0.0
 
-            if self.concentric:
-                if self.c_offset is None or self.c_cycle is None:
+            if self.apply_concentric:
+                if self.concentric_spacing is None or self.concentric_cycles is None:
                     raise ValueError(
                         "Se 'concentric' è True, 'c_offset' e 'c_cycle' sono obbligatori."
                     )
             else:
-                self.c_cycle = None
-                self.c_offset = None
+                self.concentric_cycles = None
+                self.concentric_spacing = None
 
-            if self.recursive:
-                if self.r_offset is None or self.r_cycle is None:
+            if self.apply_recursive:
+                if self.pocket_offset is None or self.pocket_cycles is None:
                     raise ValueError(
                         "Se 'recursive' è True, 'r_offset' e 'r_cycle' sono obbligatori."
                     )
 
-                if self.z_off is None:
+                if self.z_step is None:
                     raise ValueError(
                         "Le lavorazioni ricorsive richiedono uno step in Z ('z_off')."
                     )
 
-                if self.pocket_type not in ["gradient", "step"]:
+                if self.outline_mode not in ["gradient", "step"]:
                     raise ValueError(
                         "Il tipo di tasca ('pocket_type') deve essere 'gradient' o 'step'."
                     )
             else:
-                self.r_offset = None
-                self.r_cycle = None
-                self.z_off = None
-                self.pocket_type = "None"
+                self.pocket_offset = None
+                self.pocket_cycles = None
+                self.z_step = None
+                self.outline_mode = "None"
 
         else:
-            self.fill_style = None
-            self.fill_dir = None
-            self.concentric = False
-            self.c_offset = None
-            self.c_cycle = None
-            self.recursive = False
-            self.r_offset = None
-            self.r_cycle = None
-            self.z_off = None
-            self.pocket_type = "None"
+            self.infill_mode = None
+            self.infill_dir = None
+            self.apply_concentric = False
+            self.concentric_spacing = None
+            self.concentric_cycles = None
+            self.apply_recursive = False
+            self.pocket_offset = None
+            self.pocket_cycles = None
+            self.z_step = None
+            self.outline_mode = "None"
 
         return self
 
 
 class RobotConfig(BaseModel):
-    gamma: float
-    exit_quote: float
+    gamma: float = 5.0
+    exit_quote: float = 50.0
