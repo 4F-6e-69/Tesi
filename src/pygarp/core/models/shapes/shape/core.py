@@ -6,11 +6,11 @@ from shapely.geometry import Polygon
 
 from pygarp.core.models.commons import EpsConfig, Eps
 from pygarp.core.models.commons import ArrayLike, Caches
+from pygarp.core.models.utils import sort_by_tolerance_2d_array
 from pygarp.core.models.validators import (
     validate_nd_coordinates,
     validate_array_of_nd_coordinates,
 )
-from pygarp.core.models.utils import sort_by_tolerance_2d_array
 
 from pygarp.core.models.shapes.shape.transformation_mixin import TransformationMixin
 from pygarp.core.models.shapes.shape.discretization_mixin import DiscretizationMixin

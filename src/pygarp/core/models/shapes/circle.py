@@ -5,7 +5,13 @@ import numpy as np
 from numpy import typing as npt
 from shapely import Point, Polygon
 
-from pygarp.core.models.commons import ArrayLike, EpsConfig, Eps, TransformationRef, DiscretizationMethod
+from pygarp.core.models.commons import (
+    ArrayLike,
+    EpsConfig,
+    Eps,
+    TransformationRef,
+    DiscretizationMethod,
+)
 from pygarp.core.models.shapes.parametric_interface import ParametricShape
 from pygarp.core.models.validators import validate_nd_coordinates
 
@@ -107,12 +113,12 @@ class Circle(ParametricShape):
         return None
 
     def set_step(
-            self,
-            step: float,
-            *,
-            cast: bool = True,
-            eps: EpsConfig | float = Eps.eps10,
-            warn: bool = False,
+        self,
+        step: float,
+        *,
+        cast: bool = True,
+        eps: EpsConfig | float = Eps.eps10,
+        warn: bool = False,
     ):
         step = float(abs(step))
 

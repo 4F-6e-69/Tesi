@@ -5,16 +5,25 @@ from matplotlib import pyplot as plt
 
 import numpy as np
 
-from pygarp.core.models.validators import ShapeConfig, SpaceConfig, ScarfingConfig, RobotConfig
+from pygarp.cli.wizards import ask_pocket
+from pygarp.core.models.validators import (
+    ShapeConfig,
+    SpaceConfig,
+    ScarfingConfig,
+    RobotConfig,
+)
 from pygarp.core.orchestrators.main import execute_pocketing_job
 from pygarp.core.workers.writer import pocket_writing
-'''
+
+"""
 x: 800-1100
 y: -50-180
-'''
+
 spline_dict = {
     "shape": "spline",
-    "path_point": r"C:\Users\angel\PycharmProjects\PyGARP\tests\files\cpoints_01",
+    """
+# "path_point": C:\Users\angel\PycharmProjects\PyGARP\tests\files\cpoints_01,
+"""
 }
 space_dict = {
     "space_type": "default",
@@ -54,12 +63,13 @@ shape_config = ShapeConfig(**spline_dict)
 space_config = SpaceConfig(**space_dict)
 scarf_config = ScarfingConfig(**scarf_dict)
 robot_config = RobotConfig(**robot_dict)
+"""
 
 app = typer.Typer(
     name="PocketGen",
     no_args_is_help=True,
     rich_markup_mode="rich",
-    add_completion=False
+    add_completion=False,
 )
 
 
@@ -69,16 +79,20 @@ def plot_positions_and_orientations(filename: str, arrow_length: float = 5.0):
     mostrando il percorso e l'orientamento in ogni punto.
     """
     try:
-        data = np.loadtxt(filename, delimiter=',')
+        data = np.loadtxt(filename, delimiter=",")
 
         # Verifica che ci siano abbastanza colonne (almeno 6)
         if data.shape[1] < 6:
-            print("Errore: Il file deve contenere almeno 6 colonne (Posizione 3D + Vettore 3D).")
+            print(
+                "Errore: Il file deve contenere almeno 6 colonne (Posizione 3D + Vettore 3D)."
+            )
             return
 
         # Verifica che ci siano abbastanza colonne
         if data.shape[1] < 6:
-            print("Errore: Il file deve contenere almeno 6 colonne (Posizione 3D + Vettore 3D).")
+            print(
+                "Errore: Il file deve contenere almeno 6 colonne (Posizione 3D + Vettore 3D)."
+            )
             return
 
         # Estrai Posizioni (X, Y, Z)
@@ -94,14 +108,14 @@ def plot_positions_and_orientations(filename: str, arrow_length: float = 5.0):
 
         # Configura il Plot 3D
         fig = plt.figure(figsize=(10, 8))
-        ax = fig.add_subplot(111, projection='3d')
+        ax = fig.add_subplot(111, projection="3d")
 
         # 1. Disegna la linea continua del percorso
-        ax.plot(x, y, z, color='gray', linestyle='--', label='Traiettoria', alpha=0.5)
+        ax.plot(x, y, z, color="gray", linestyle="--", label="Traiettoria", alpha=0.5)
         # 2. Disegna i punti di posizione (il tuo TCP)
-        ax.scatter(x, y, z, color='blue', s=15, label='Posizioni (TCP)')
+        ax.scatter(x, y, z, color="blue", s=15, label="Posizioni (TCP)")
 
-        ax.scatter(u, v, w, color='red', s=15)
+        ax.scatter(u, v, w, color="red", s=15)
 
         # Estetica del grafico
         ax.set_title(f"Visualizzazione Toolpath: {filename}")
@@ -120,12 +134,25 @@ def plot_positions_and_orientations(filename: str, arrow_length: float = 5.0):
     except Exception as e:
         print(f"Si è verificato un errore durante il plot: {e}")
 
-@app.command("calc")
-def main():
-    result = execute_pocketing_job(shape_config, space_config, scarf_config, robot_config)
-    filename = str(Path(__file__).resolve().parent.parent.parent.parent / "tests/files/test_08.csv")
+
+@app.command("pocket")
+def pocket_calc():
+    answers_dict = ask_pocket()
+
+    shape_config = ShapeConfig(**answers_dict)
+    space_config = SpaceConfig(**answers_dict)
+    scarf_config = ScarfingConfig(**answers_dict)
+    robot_config = RobotConfig()
+
+    result = execute_pocketing_job(
+        shape_config, space_config, scarf_config, robot_config
+    )
+    filename = str(
+        Path(__file__).resolve().parent.parent.parent.parent / "tests/test_08.csv"
+    )
     pocket_writing(result, filename)
     plot_positions_and_orientations(filename)
+
 
 if __name__ == "__main__":
     app()

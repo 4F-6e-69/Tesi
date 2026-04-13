@@ -20,9 +20,9 @@ def generate_shape(
     )
     eps = Eps.eps10 if shape_config.eps is None else shape_config.eps
 
-    if shape_config.shape in ["shape", "spline"]:
+    if shape_config.shape_type in ["shape", "spline"]:
         control_points = shape_config.control_points
-        if shape_config.shape == "spline":
+        if shape_config.shape_type == "spline":
             shape = ClosedSpline(
                 control_points,
                 origin=origin,
@@ -35,14 +35,14 @@ def generate_shape(
                 assume_sort=shape_config.assume_sort,
                 eps=eps,
             )
-    elif shape_config.shape == "circle":
+    elif shape_config.shape_type == "circle":
         shape = Circle(
             shape_config.radius,
             shape_config.center,
             origin=origin,
             eps=eps,
         )
-    elif shape_config.shape == "rectangle":
+    elif shape_config.shape_type == "rectangle":
         shape = Rectangle(
             shape_config.width,
             shape_config.height,
@@ -50,10 +50,10 @@ def generate_shape(
             origin=origin,
             eps=eps,
         )
-    elif shape_config.shape == "regular_polygon":
+    elif shape_config.shape_type == "regular_polygon":
         shape = RegularPolygon(
-            shape_config.side,
-            shape_config.n,
+            shape_config.side_length,
+            shape_config.n_sides,
             shape_config.center,
             origin=origin,
             eps=eps,

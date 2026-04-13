@@ -39,12 +39,12 @@ def execute_pocketing_job(
     shape = generate_shape(shape_config)
     space = generate_virtual_space(space_config)
 
-    cust_step = 20
+    custom_step = 20
     local_outline_path = None
-    if scarfing_config.outline:
-        if scarfing_config.outline_style == "step":
+    if scarfing_config.apply_outline:
+        if scarfing_config.outline_mode == "step":
             local_outline_path = calc_step_outline(
-                shape.discretize(custom_step=cust_step), robot_config.gamma
+                shape.discretize(custom_step=custom_step), robot_config.gamma
             )
         else:
             local_outline_path = calc_gradient_outline(
@@ -52,17 +52,17 @@ def execute_pocketing_job(
             )
 
     fill_blocks = []
-    if scarfing_config.fill:
+    if scarfing_config.apply_infill:
         print("Filling")
         last_polygon = shape.polygon
 
         # 1. GESTIONE CONCENTRICO
-        if scarfing_config.concentric:
+        if scarfing_config.apply_concentric:
             shapes = calc_concentric_shapes(
                 shape.polygon,
-                scarfing_config.c_cycle,
-                scarfing_config.c_offset,
-                scarfing_config.c_offset_0,
+                scarfing_config.concentric_cycles,
+                scarfing_config.concentric_spacing,
+                scarfing_config.concentric_initial_offset,
                 first=False,
                 flatter=True,
             )
@@ -70,7 +70,7 @@ def execute_pocketing_job(
                 concentric_fill_sape = calc_gradient_outline(
                     concentric_plot_fill_path(
                         shapes,
-                        cust_step,
+                        custom_step,
                         robot_config.exit_quote,
                         isinstance(shape, ClosedSpline),
                     ),
@@ -89,30 +89,35 @@ def execute_pocketing_job(
             fill_blocks.append(base_fill)
 
         # 3. GESTIONE RICORSIVA
-        if scarfing_config.recursive:
+        if scarfing_config.apply_recursive:
             stepped_layers = calc_concentric_shapes(
                 last_polygon,
-                scarfing_config.r_cycle,
-                scarfing_config.r_offset,
-                scarfing_config.r_offset,
+                scarfing_config.pocket_cycles,
+                scarfing_config.pocket_offset,
+                scarfing_config.pocket_offset,
                 first=False,
                 flatter=True,
             )
 
             for index, current_layer in enumerate(stepped_layers):
-                profondita_z = (index + 1) * scarfing_config.z_off
+                profondita_z = (index + 1) * scarfing_config.z_step
 
                 coords = np.column_stack(current_layer.exterior.xy)
                 outline_grezzo = discretize_points(coords, shape.max_step / 9)
 
                 grad_outline = (
                     calc_gradient_outline(outline_grezzo, robot_config.gamma)
-                    if scarfing_config.outline_style == "gradient"
+                    if scarfing_config.outline_mode == "gradient"
                     else calc_step_outline(outline_grezzo, robot_config.gamma)
                 )
 
-                off = np.asarray([0, 0, robot_config.exit_quote, 0, 0, robot_config.exit_quote], dtype=np.float64)
-                gradino_outline = np.vstack((grad_outline[0] + off, grad_outline, grad_outline[-1] + off))
+                off = np.asarray(
+                    [0, 0, robot_config.exit_quote, 0, 0, robot_config.exit_quote],
+                    dtype=np.float64,
+                )
+                gradino_outline = np.vstack(
+                    (grad_outline[0] + off, grad_outline, grad_outline[-1] + off)
+                )
 
                 gradino_fill = _fill_pocket(
                     scarfing_config, current_layer, robot_config
@@ -157,13 +162,13 @@ def _fill_pocket(
     scarfing_config: ScarfingConfig, last_polygon: Polygon, robot_config: RobotConfig
 ) -> npt.NDArray[np.float64]:
     block = []
-    if scarfing_config.fill_style == "grid":
+    if scarfing_config.infill_mode == "grid":
         local_fill_path_horizontal = calc_gradient_outline(
             linear_rect_fill_path(
                 calc_linear_intersection(
                     last_polygon,
-                    float(scarfing_config.fill_dir % 360),
-                    scarfing_config.fill_spacing,
+                    float(scarfing_config.infill_dir % 360),
+                    scarfing_config.infill_spacing,
                 ),
                 robot_config.exit_quote,
             ),
@@ -173,8 +178,8 @@ def _fill_pocket(
             linear_rect_fill_path(
                 calc_linear_intersection(
                     last_polygon,
-                    float((scarfing_config.fill_dir + 90) % 360),
-                    scarfing_config.fill_spacing,
+                    float((scarfing_config.infill_dir + 90) % 360),
+                    scarfing_config.infill_spacing,
                 ),
                 robot_config.exit_quote,
             ),
@@ -186,13 +191,13 @@ def _fill_pocket(
         )
         block.append(local_linear_fill_path)
 
-    elif scarfing_config.fill_style == "rect":
+    elif scarfing_config.infill_mode == "rect":
         local_linear_fill_path = calc_gradient_outline(
             linear_rect_fill_path(
                 calc_linear_intersection(
                     last_polygon,
-                    float(scarfing_config.fill_dir % 360),
-                    scarfing_config.fill_spacing,
+                    float(scarfing_config.infill_dir % 360),
+                    scarfing_config.infill_spacing,
                 ),
                 robot_config.exit_quote,
             ),
