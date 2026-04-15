@@ -15,7 +15,7 @@ y: -50-180
 spline_dict = {
     "shape": "regular_polygon",
     "n": 6,
-    "side": 81.6,
+    "side": 72.4,
 }
 space_dict = {
     "space_type": "default",
@@ -25,10 +25,10 @@ space_dict = {
     "p_hint": [750, 351, 30],
 }
 scarf_dict = {
-    "pocket_type": "gradient",
+    "pocket_type": "step",
 
     "outline": True,
-    "outline_style": "gradient",
+    "outline_style": "step",
 
     "fill": True,
     "fill_style": "grid",
