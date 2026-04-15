@@ -25,10 +25,10 @@ space_dict = {
     "p_hint": [750, 351, 30],
 }
 scarf_dict = {
-    "pocket_type": "step",
+    "pocket_type": "gradient",
 
     "outline": True,
-    "outline_style": "step",
+    "outline_style": "gradient",
 
     "fill": False,
     "fill_style": "grid",
