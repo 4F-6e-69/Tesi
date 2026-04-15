@@ -15,7 +15,7 @@ y: -50-180
 spline_dict = {
     "shape": "regular_polygon",
     "n": 6,
-    "side": 100,
+    "side": 90.8,
 }
 space_dict = {
     "space_type": "default",
