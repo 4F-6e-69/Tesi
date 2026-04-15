@@ -143,7 +143,7 @@ def execute_pocketing_job(
     elif local_fill_path is None:
         local_path = local_outline_path
     else:
-        local_path = np.vstack((local_outline_path, local_fill_path))
+        local_path = np.vstack((local_fill_path, local_outline_path))
 
     return np.hstack(
         (

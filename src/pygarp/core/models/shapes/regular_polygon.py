@@ -87,7 +87,7 @@ class RegularPolygon(Shape):
 
     @property
     def vertices(self):
-        return self.open_control_points
+        return self.control_points
 
     @property
     def theoretical_area(self) -> float:
