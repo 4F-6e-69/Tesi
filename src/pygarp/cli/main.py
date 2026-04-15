@@ -15,7 +15,7 @@ y: -50-180
 spline_dict = {
     "shape": "regular_polygon",
     "n": 6,
-    "side": 90.8,
+    "side": 81.6,
 }
 space_dict = {
     "space_type": "default",
@@ -124,7 +124,7 @@ def plot_positions_and_orientations(filename: str, arrow_length: float = 5.0):
 @app.command("calc")
 def main():
     result = execute_pocketing_job(shape_config, space_config, scarf_config, robot_config)
-    filename = str(Path(__file__).resolve().parent.parent.parent.parent / "tests/output/esagono_con.csv")
+    filename = str(Path(__file__).resolve().parent.parent.parent.parent / "tests/output/esagono_con_3.csv")
     pocket_writing(result, filename)
     plot_positions_and_orientations(filename)
 
