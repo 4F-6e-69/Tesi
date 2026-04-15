@@ -50,3 +50,7 @@ htmlcov/
 # =========================
 .DS_Store
 Thumbs.db
+
+git_desc.txt
+src/pygarp/cli/back/
+tests/files/

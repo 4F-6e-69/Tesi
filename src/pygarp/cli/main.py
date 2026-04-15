@@ -13,15 +13,16 @@ x: 800-1100
 y: -50-180
 '''
 spline_dict = {
-    "shape": "spline",
-    "path_point": r"C:\Users\angel\PycharmProjects\PyGARP\tests\files\cpoints_01",
+    "shape": "regular_polygon",
+    "n": 6,
+    "side": 100,
 }
 space_dict = {
     "space_type": "default",
     "strategy": "DFT",
-    "origin": [1200, 235, 450],
-    "x_hint": [-2, -0.55, -1],
-    "z": [0, 0, 0.7],
+    "origin": [750, 350, 30],
+    "x_hint": [751, 350, 30],
+    "p_hint": [750, 351, 30],
 }
 scarf_dict = {
     "pocket_type": "gradient",
@@ -31,8 +32,8 @@ scarf_dict = {
 
     "fill": True,
     "fill_style": "grid",
-    "fill_dir": 50.0,
-    "fill_spacing": 7.0,
+    "fill_dir": 0.0,
+    "fill_spacing": 8.0,
 
     "concentric": False,
     "c_offset": 7.0,
@@ -41,8 +42,8 @@ scarf_dict = {
 
 
     "recursive": True,
-    "r_offset": 5.0,
-    "r_cycle": 4,
+    "r_offset": 8.0,
+    "r_cycle": 2,
     "z_off": 1
 }
 robot_dict = {
