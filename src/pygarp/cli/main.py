@@ -30,9 +30,9 @@ scarf_dict = {
     "outline": True,
     "outline_style": "gradient",
 
-    "fill": False,
+    "fill": True,
     "fill_style": "grid",
-    "fill_dir": 0.0,
+    "fill_dir": 45.0,
     "fill_spacing": 8.0,
 
     "concentric": False,
@@ -41,7 +41,7 @@ scarf_dict = {
     "c_offset_0": 0,
 
 
-    "recursive": True,
+    "recursive": False,
     "r_offset": 8.0,
     "r_cycle": 2,
     "z_off": 1
@@ -124,7 +124,7 @@ def plot_positions_and_orientations(filename: str, arrow_length: float = 5.0):
 @app.command("calc")
 def main():
     result = execute_pocketing_job(shape_config, space_config, scarf_config, robot_config)
-    filename = str(Path(__file__).resolve().parent.parent.parent.parent / "tests/output/esagono_con_3.csv")
+    filename = str(Path(__file__).resolve().parent.parent.parent.parent / "tests/output/esagono_com_4.csv")
     pocket_writing(result, filename)
     plot_positions_and_orientations(filename)
 
