@@ -39,7 +39,7 @@ def execute_pocketing_job(
     shape = generate_shape(shape_config)
     space = generate_virtual_space(space_config)
 
-    cust_step = 20
+    cust_step = 5
     local_outline_path = None
     if scarfing_config.outline:
         if scarfing_config.outline_style == "step":
@@ -92,7 +92,7 @@ def execute_pocketing_job(
         if scarfing_config.recursive:
             stepped_layers = calc_concentric_shapes(
                 last_polygon,
-                scarfing_config.r_cycle,
+                scarfing_config.r_cycle-1,
                 scarfing_config.r_offset,
                 scarfing_config.r_offset,
                 first=False,
@@ -103,23 +103,29 @@ def execute_pocketing_job(
                 profondita_z = (index + 1) * scarfing_config.z_off
 
                 coords = np.column_stack(current_layer.exterior.xy)
-                outline_grezzo = discretize_points(coords, shape.max_step / 9)
+                outline_grezzo = discretize_points(coords, shape.max_step / 20)
 
-                grad_outline = (
-                    calc_gradient_outline(outline_grezzo, robot_config.gamma)
-                    if scarfing_config.outline_style == "gradient"
-                    else calc_step_outline(outline_grezzo, robot_config.gamma)
-                )
+                if scarfing_config.outline:
+                    grad_outline = (
+                        calc_gradient_outline(outline_grezzo, robot_config.gamma)
+                        if scarfing_config.outline_style == "gradient"
+                        else calc_step_outline(outline_grezzo, robot_config.gamma)
+                    )
 
-                off = np.asarray([0, 0, robot_config.exit_quote, 0, 0, robot_config.exit_quote], dtype=np.float64)
-                gradino_outline = np.vstack((grad_outline[0] + off, grad_outline, grad_outline[-1] + off))
-
+                    off = np.asarray([0, 0, robot_config.exit_quote, 0, 0, robot_config.exit_quote], dtype=np.float64)
+                    gradino_outline = np.vstack((grad_outline[0] + off, grad_outline, grad_outline[-1] + off))
+                else: 
+                    grad_outline = None
+                    
                 gradino_fill = _fill_pocket(
                     scarfing_config, current_layer, robot_config
                 )
 
                 if gradino_fill is not None and len(gradino_fill) > 0:
-                    gradino_completo = np.vstack((gradino_outline, gradino_fill))
+                    if grad_outline is not None: 
+                        gradino_completo = np.vstack((gradino_fill, gradino_outline))
+                    else:
+                        gradino_completo = gradino_fill.copy()
                 else:
                     gradino_completo = gradino_outline.copy()
 
@@ -167,7 +173,7 @@ def _fill_pocket(
                 ),
                 robot_config.exit_quote,
             ),
-            robot_config.gamma,
+            -robot_config.gamma,
         )
         local_fill_path_vertical = calc_gradient_outline(
             linear_rect_fill_path(
@@ -178,7 +184,7 @@ def _fill_pocket(
                 ),
                 robot_config.exit_quote,
             ),
-            robot_config.gamma,
+            -robot_config.gamma,
         )
 
         local_linear_fill_path = np.vstack(
@@ -196,8 +202,11 @@ def _fill_pocket(
                 ),
                 robot_config.exit_quote,
             ),
-            robot_config.gamma,
+            -robot_config.gamma,
         )
         block.append(local_linear_fill_path)
+    
+    else: 
+        pass
 
     return np.vstack(block) if block else np.empty((0, 3))

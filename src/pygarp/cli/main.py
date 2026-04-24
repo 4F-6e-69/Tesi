@@ -12,17 +12,17 @@ from pygarp.core.workers.writer import pocket_writing
 x: 800-1100
 y: -50-180
 '''
-spline_dict = {
+shape_dict = {
     "shape": "regular_polygon",
     "n": 6,
-    "side": 72.4,
+    "side": 19.6
 }
 space_dict = {
     "space_type": "default",
     "strategy": "DFT",
-    "origin": [750, 350, 30],
-    "x_hint": [751, 350, 30],
-    "p_hint": [750, 351, 30],
+    "origin": [590, 0, 30],
+    "x_hint": [591, 0, 30],
+    "p_hint": [591, 1, 30],
 }
 scarf_dict = {
     "pocket_type": "gradient",
@@ -30,28 +30,28 @@ scarf_dict = {
     "outline": True,
     "outline_style": "gradient",
 
-    "fill": False,
-    "fill_style": "grid",
+    "fill": True,
+    "fill_style": "none", # grid, rect
     "fill_dir": 45.0,
     "fill_spacing": 8.0,
 
     "concentric": False,
-    "c_offset": 7.0,
-    "c_cycle": 5,
-    "c_offset_0": 0,
+    "c_offset": 5.0,
+    "c_cycle": 1,
+    "c_offset_0": 5.0,
 
 
-    "recursive": False,
+    "recursive": True,
     "r_offset": 8.0,
     "r_cycle": 2,
-    "z_off": 1
+    "z_off": 3
 }
 robot_dict = {
     "gamma": -5.0,
     "exit_quote": 50
 }
 
-shape_config = ShapeConfig(**spline_dict)
+shape_config = ShapeConfig(**shape_dict)
 space_config = SpaceConfig(**space_dict)
 scarf_config = ScarfingConfig(**scarf_dict)
 robot_config = RobotConfig(**robot_dict)
@@ -113,7 +113,7 @@ def plot_positions_and_orientations(filename: str, arrow_length: float = 5.0):
         # Rende gli assi proporzionali (utile in 3D per non deformare la figura)
         ax.set_box_aspect([1, 1, 1])
 
-        ax.legend()
+        #ax.legend()
         plt.show()
 
     except FileNotFoundError:

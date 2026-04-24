@@ -378,9 +378,9 @@ class ScarfingConfig(BaseModel):
                     "Se 'fill' è abilitato, devi specificare un 'fill_style'."
                 )
 
-            if self.fill_style not in ["grid", "rect"]:
+            if self.fill_style not in ["grid", "rect", "none"]:
                 raise ValueError(
-                    f"Stile di riempimento '{self.fill_style}' non valido. Usa 'grid' o 'rect'."
+                    f"Stile di riempimento '{self.fill_style}' non valido. Usa 'grid', 'rect' o 'none'."
                 )
 
             if self.fill_dir is not None:

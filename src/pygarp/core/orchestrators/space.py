@@ -22,7 +22,7 @@ def generate_virtual_space(space_config: SpaceConfig) -> WorkingSpace:
             space_config.origin,
             space_config.x_hint,
             space_config.p_hint,
-        ).invert_z()
+        )
     elif space_config.strategy == "ONC":
         return WorkingSpace.new_space_from_normal(
             space_config.origin,
